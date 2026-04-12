@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>DSA Tracker — Settings</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --green: #1D9E75; --green-dk: #0F6E56; --green-lt: #E1F5EE;
+      --red: #E24B4A; --gray-100: #F5F5F4; --gray-200: #E8E8E5;
+      --gray-400: #A0A09A; --gray-700: #3D3D3A; --gray-900: #1A1A18;
+      --radius: 10px;
+    }
+    body { font-family: system-ui, sans-serif; color: var(--gray-900); background: #FAFAF8; min-height: 100vh; }
+
+    .container { max-width: 680px; margin: 0 auto; padding: 40px 24px; }
+
+    .page-header { display: flex; align-items: center; gap: 14px; margin-bottom: 36px; }
+    .page-logo   { font-size: 36px; }
+    .page-title  { font-size: 24px; font-weight: 700; }
+    .page-sub    { font-size: 14px; color: var(--gray-400); margin-top: 2px; }
+
+    .card {
+      background: #fff; border: 1.5px solid var(--gray-200);
+      border-radius: var(--radius); padding: 24px; margin-bottom: 20px;
+    }
+    .card-title { font-size: 15px; font-weight: 600; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+    .card-title .icon { font-size: 18px; }
+
+    .field-row   { margin-bottom: 16px; }
+    .field-label { display: block; font-size: 12px; font-weight: 500; color: var(--gray-700); margin-bottom: 5px; }
+    .field-input {
+      width: 100%; padding: 9px 12px;
+      border: 1.5px solid var(--gray-200); border-radius: 7px;
+      font-size: 14px; outline: none; transition: border-color 0.15s;
+    }
+    .field-input:focus { border-color: var(--green); }
+    .field-hint  { font-size: 11px; color: var(--gray-400); margin-top: 4px; }
+
+    .toggle-row  { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--gray-100); }
+    .toggle-row:last-child { border-bottom: none; }
+    .toggle-label { font-size: 14px; }
+    .toggle-sub   { font-size: 11px; color: var(--gray-400); margin-top: 1px; }
+    .toggle { width: 40px; height: 22px; background: var(--gray-200); border-radius: 11px; border: none; cursor: pointer; position: relative; transition: background 0.2s; flex-shrink: 0; }
+    .toggle.on { background: var(--green); }
+    .toggle::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform 0.2s; }
+    .toggle.on::after { transform: translateX(18px); }
+
+    .btn-row   { display: flex; gap: 10px; margin-top: 20px; }
+    .btn {
+      padding: 10px 20px; border-radius: 8px; font-size: 14px;
+      font-weight: 500; border: none; cursor: pointer; transition: all 0.15s;
+    }
+    .btn-primary   { background: var(--green); color: #fff; }
+    .btn-primary:hover { background: var(--green-dk); }
+    .btn-danger    { background: #FCEBEB; color: var(--red); }
+    .btn-danger:hover  { background: #F7C1C1; }
+
+    .push-history { display: flex; flex-direction: column; gap: 8px; }
+    .history-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 14px; background: var(--gray-100);
+      border-radius: 8px; font-size: 13px;
+    }
+    .h-day     { font-weight: 600; color: var(--green-dk); min-width: 50px; }
+    .h-name    { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .h-plat    { font-size: 11px; color: var(--gray-400); min-width: 80px; text-align: right; }
+    .h-date    { font-size: 11px; color: var(--gray-400); min-width: 72px; text-align: right; }
+
+    .shortcuts-list { display: flex; flex-direction: column; gap: 10px; }
+    .shortcut-row   { display: flex; align-items: center; justify-content: space-between; }
+    .shortcut-desc  { font-size: 13px; }
+    .kbd            { display: inline-block; background: var(--gray-100); border: 1px solid var(--gray-200); border-radius: 5px; padding: 2px 8px; font-family: monospace; font-size: 12px; font-weight: 600; }
+
+    .streak-stats   { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .s-stat         { text-align: center; padding: 14px 8px; background: var(--gray-100); border-radius: 8px; }
+    .s-val          { font-size: 26px; font-weight: 700; color: var(--gray-900); }
+    .s-lbl          { font-size: 11px; color: var(--gray-400); margin-top: 3px; }
+
+    .danger-zone .card-title { color: var(--red); }
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--green); color: #fff; padding: 11px 20px; border-radius: 10px; font-size: 14px; font-weight: 500; z-index: 9999; opacity: 0; transition: opacity 0.3s; }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="page-header">
+    <div class="page-logo">🔥</div>
+    <div>
+      <div class="page-title">DSA Tracker Settings</div>
+      <div class="page-sub" id="user-sub">Loading...</div>
+    </div>
+  </div>
+
+  <!-- GitHub Account -->
+  <div class="card">
+    <div class="card-title"><span class="icon">🐙</span> GitHub Account</div>
+    <div class="field-row">
+      <label class="field-label">Logged in as</label>
+      <input id="field-user" class="field-input" type="text" readonly />
+    </div>
+    <div class="field-row">
+      <label class="field-label">Target Repository</label>
+      <input id="field-repo" class="field-input" type="text" placeholder="dsa-practice" />
+      <div class="field-hint">Repo will be created automatically if it doesn't exist.</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-save-repo">Save Repo</button>
+      <button class="btn btn-danger" id="btn-open-repo">Open on GitHub ↗</button>
+    </div>
+  </div>
+
+  <!-- Streak Stats -->
+  <div class="card">
+    <div class="card-title"><span class="icon">📊</span> Your Stats</div>
+    <div class="streak-stats">
+      <div class="s-stat"><div id="s-current" class="s-val">—</div><div class="s-lbl">Current streak</div></div>
+      <div class="s-stat"><div id="s-longest" class="s-val">—</div><div class="s-lbl">Longest streak</div></div>
+      <div class="s-stat"><div id="s-total"   class="s-val">—</div><div class="s-lbl">Total questions</div></div>
+    </div>
+    <div style="margin-top:14px;font-size:12px;color:var(--gray-400)">
+      Started: <strong id="s-started">—</strong> &nbsp;·&nbsp;
+      Day: <strong id="s-day">—</strong> &nbsp;·&nbsp;
+      Breaks: <strong id="s-breaks">—</strong>
+    </div>
+  </div>
+
+  <!-- Notifications -->
+  <div class="card">
+    <div class="card-title"><span class="icon">🔔</span> Notifications & Reminders</div>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Daily reminder at 9 PM</div>
+        <div class="toggle-sub">Get notified if you haven't pushed today</div>
+      </div>
+      <button class="toggle on" id="toggle-reminder" data-key="reminder"></button>
+    </div>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Auto-push on submit</div>
+        <div class="toggle-sub">Automatically push when you get "Accepted"</div>
+      </div>
+      <button class="toggle on" id="toggle-auto-push" data-key="autoPush"></button>
+    </div>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Floating day badge</div>
+        <div class="toggle-sub">Show Day/Streak badge on coding platforms</div>
+      </div>
+      <button class="toggle on" id="toggle-badge" data-key="showBadge"></button>
+    </div>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Sound on push</div>
+        <div class="toggle-sub">Play a small success sound when code is pushed</div>
+      </div>
+      <button class="toggle" id="toggle-sound" data-key="sound"></button>
+    </div>
+    <div class="btn-row" style="margin-top:14px;">
+      <button class="btn btn-primary" id="btn-save-settings">Save Settings</button>
+    </div>
+  </div>
+
+  <!-- Keyboard shortcuts -->
+  <div class="card">
+    <div class="card-title"><span class="icon">⌨️</span> Keyboard Shortcuts</div>
+    <div class="shortcuts-list">
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Restore last code snapshot (Time Machine)</span>
+        <span><kbd class="kbd">Ctrl</kbd> + <kbd class="kbd">Shift</kbd> + <kbd class="kbd">Z</kbd></span>
+      </div>
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Manually push current code to GitHub</span>
+        <span><kbd class="kbd">Ctrl</kbd> + <kbd class="kbd">Shift</kbd> + <kbd class="kbd">G</kbd></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Push History -->
+  <div class="card">
+    <div class="card-title"><span class="icon">📝</span> Full Push History</div>
+    <div id="push-history-list" class="push-history">
+      <div style="font-size:13px;color:var(--gray-400);">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Danger zone -->
+  <div class="card danger-zone">
+    <div class="card-title"><span class="icon">⚠️</span> Danger Zone</div>
+    <div class="btn-row">
+      <button class="btn btn-danger" id="btn-reset-streak">Reset Streak Data</button>
+      <button class="btn btn-danger" id="btn-logout">Logout</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module" src="options.js"></script>
+</body>
+</html>

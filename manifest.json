@@ -1,0 +1,94 @@
+{
+  "manifest_version": 3,
+  "name": "DSA Tracker — GitHub Consistency Tool",
+  "short_name": "DSA Tracker",
+  "version": "1.0.2",
+  "description": "Auto-push your DSA solutions to GitHub. Track streaks, build consistency — day by day.",
+
+  "permissions": [
+    "storage",
+    "identity",
+    "notifications",
+    "alarms",
+    "tabs",
+    "scripting"
+  ],
+
+  "host_permissions": [
+    "https://api.github.com/*",
+    "https://leetcode.com/*",
+    "https://www.geeksforgeeks.org/*",
+    "https://practice.geeksforgeeks.org/*",
+    "https://www.naukri.com/*",
+    "https://www.codingninjas.com/*",
+    "https://nados.io/*"
+  ],
+
+  "background": {
+    "service_worker": "src/background/service-worker.js",
+    "type": "module"
+  },
+
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16":  "assets/icons/icon-16.png",
+      "32":  "assets/icons/icon-32.png",
+      "48":  "assets/icons/icon-48.png",
+      "128": "assets/icons/icon-128.png"
+    },
+    "default_title": "DSA Tracker"
+  },
+
+  "icons": {
+    "16":  "assets/icons/icon-16.png",
+    "32":  "assets/icons/icon-32.png",
+    "48":  "assets/icons/icon-48.png",
+    "128": "assets/icons/icon-128.png"
+  },
+
+  "content_scripts": [
+    {
+      "matches": [
+        "https://leetcode.com/problems/*",
+        "https://www.geeksforgeeks.org/problems/*",
+        "https://www.geeksforgeeks.org/*/",
+        "https://practice.geeksforgeeks.org/problems/*",
+        "https://www.naukri.com/code360/problems/*",
+        "https://nados.io/problem/*"
+      ],
+      "js": ["src/content/content-main.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://leetcode.com/problems/*",
+        "https://www.geeksforgeeks.org/problems/*",
+        "https://www.geeksforgeeks.org/*/",
+        "https://practice.geeksforgeeks.org/problems/*",
+        "https://www.naukri.com/code360/problems/*",
+        "https://nados.io/problem/*"
+      ],
+      "js": ["src/content/bridge.js"],
+      "run_at": "document_idle",
+      "world": "MAIN"
+    }
+  ],
+
+  "options_ui": {
+    "page": "src/options/options.html",
+    "open_in_tab": true
+  },
+
+  "oauth2": {
+    "client_id": "YOUR_GITHUB_OAUTH_APP_CLIENT_ID",
+    "scopes": ["repo", "user:email", "read:user"]
+  },
+
+  "web_accessible_resources": [
+    {
+      "resources": ["src/popup/*", "assets/*", "src/content/bridge.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
