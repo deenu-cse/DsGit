@@ -20,14 +20,112 @@ import {
 
 import {
   fetchAuthenticatedUser, ensureRepo, pushFilesToRepo,
-  buildReadme, createIssue, addIssueComment, closeIssue,
-  fetchRepositoryIssues, fetchUserStatsJSON, searchIssues,
-  fetchIssueComments,
+  buildReadme, fetchUserStatsJSON
 } from "../shared/github-api.js";
 
 import {
   buildFilePath, buildCodeFile, todayISO,
 } from "../shared/utils.js";
+
+// WebSocket connection state
+let ws = null;
+let wsIsConnected = false;
+let wsReconnectDelay = 1000;
+let wsMaxDelay = 8000;
+
+function connectWebSocket() {
+  getUserProfile().then(profile => {
+    if (!profile) return;
+    const WS_URL = `wss://api-dsgit.onrender.com?username=${profile.login}`;
+    
+    ws = new WebSocket(WS_URL);
+    
+    ws.onopen = () => {
+      console.log("[DSA Tracker] WebSocket Connected");
+      wsIsConnected = true;
+      wsReconnectDelay = 1000; // Reset backoff
+    };
+    
+    ws.onmessage = async (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        await handleWebSocketMessage(data);
+      } catch (e) {
+        console.error("WS parse error", e);
+      }
+    };
+    
+    ws.onclose = () => {
+      console.log("[DSA Tracker] WebSocket Disconnected. Reconnecting in " + wsReconnectDelay + "ms...");
+      wsIsConnected = false;
+      setTimeout(connectWebSocket, wsReconnectDelay);
+      wsReconnectDelay = Math.min(wsReconnectDelay * 2, wsMaxDelay);
+    };
+    
+    ws.onerror = (err) => {
+      console.error("[DSA Tracker] WebSocket Error:", err);
+      ws.close();
+    };
+  });
+}
+
+async function handleWebSocketMessage(data) {
+  const { type, payload } = data;
+  let battles = (await getBattles()) || [];
+  let modified = false;
+
+  if (type === 'CHALLENGE_RECEIVED') {
+    const { battle } = payload;
+    if (!battles.some(b => b.id === battle.battleId)) {
+      battles.push({
+        id: battle.battleId,
+        type: battle.type,
+        duration: battle.duration,
+        opponent: battle.challenger,
+        status: "received_invite",
+      });
+      modified = true;
+      chrome.notifications.create({
+        type: "basic", iconUrl: "/assets/icons/icon-128.png",
+        title: "⚔️ New DSA Challenge!",
+        message: `@${battle.challenger} has challenged you to a battle! Open extension to accept.`
+      });
+    }
+  } 
+  else if (type === 'CHALLENGE_ACCEPTED') {
+    const { battleId, opponent } = payload;
+    const b = battles.find(x => x.id === battleId);
+    if (b) {
+      b.status = 'active';
+      b.endDate = new Date(Date.now() + parseInt(b.duration || 30) * 86_400_000).toISOString().slice(0, 10);
+      modified = true;
+      chrome.notifications.create({ type: "basic", iconUrl: "/assets/icons/icon-128.png", title: "⚔️ Challenge Accepted!", message: `${opponent} accepted your challenge. Let the battle begin!` });
+    }
+  }
+  else if (type === 'CHALLENGE_ACCEPTED_CONFIRM') {
+    const { battleId } = payload;
+    const b = battles.find(x => x.id === battleId);
+    if (b) {
+      b.status = 'active';
+      b.endDate = new Date(Date.now() + parseInt(b.duration || 30) * 86_400_000).toISOString().slice(0, 10);
+      modified = true;
+    }
+  }
+  else if (type === 'BATTLE_WON') {
+    const { battleId, loser } = payload;
+    const b = battles.find(x => x.id === battleId);
+    if (b) {
+      b.status = 'won';
+      modified = true;
+      chrome.notifications.create({ type: "basic", iconUrl: "/assets/icons/icon-128.png", title: "🏆 Battle Won!", message: `${loser} broke their streak! You win the battle.` });
+    }
+  }
+
+  if (modified) await saveBattles(battles);
+}
+
+// Ensure connection when Service Worker wakes up
+connectWebSocket();
 
 // ─── Install handler ──────────────────────────────────────────────────────────
 
@@ -201,6 +299,23 @@ async function initiateGitHubOAuth() {
   // Set signup date only on first ever login
   const existingDate = await getSignupDate();
   if (!existingDate) await setSignupDate(new Date().toISOString());
+
+  // Sync to Backend
+  try {
+    await fetch('https://api-dsgit.onrender.com/api/sync-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        githubId: profile.id,
+        username: profile.login,
+        avatar_url: profile.avatar_url
+      })
+    });
+    // Ensure WS is connected
+    if (!wsIsConnected) connectWebSocket();
+  } catch (e) {
+    console.error("[DSA Tracker] Backend sync failed", e);
+  }
 
   return { success: true, profile };
 }
@@ -399,22 +514,24 @@ async function handleFetchFriendStats({ friendUsername }) {
 async function sendChallenge(payload) {
   const { opponent, type, duration } = payload;
   const profile = await getUserProfile();
-  const repoName = await getRepoName();
   if (opponent.toLowerCase() === profile.login.toLowerCase()) throw new Error("You can't challenge yourself!");
   
-  await handleFetchFriendStats({ friendUsername: opponent }); // ensure repo exists
+  await handleFetchFriendStats({ friendUsername: opponent }); // ensure tracker is installed
 
-  const title = `DSA Battle Challenge from @${profile.login}`;
   const battleId = `battle_` + Date.now().toString(36);
-  const body = `CHALLENGE::${type}::duration:${duration}::id:${battleId}::opponent:${opponent}`;
 
-  const issueRes = await createIssue(profile.login, repoName, title, body);
+  if (ws && wsIsConnected) {
+    ws.send(JSON.stringify({
+      type: 'SEND_CHALLENGE',
+      payload: { opponent, battleType: type, duration, battleId }
+    }));
+  } else {
+    throw new Error("Cannot send challenge: Backend disconnected. Try again in a moment.");
+  }
 
   const battles = (await getBattles()) || [];
   battles.push({
     id: battleId, type, opponent, status: "pending_invite",
-    issueNumber: issueRes.number,
-    challengerRepo: profile.login,
     startDate: todayISO(), duration 
   });
   await saveBattles(battles);
@@ -423,23 +540,17 @@ async function sendChallenge(payload) {
 }
 
 async function acceptChallenge(payload) {
-  const { opponent, battleId, issueNumber, type, duration, challengerRepo } = payload;
-  const repoName = await getRepoName();
-
-  await addIssueComment(challengerRepo, repoName, issueNumber, `ACCEPTED::${battleId}`);
-
-  const battles = (await getBattles()) || [];
+  const { opponent, battleId, type, duration, challengerRepo } = payload;
   
-  // Clean up if it was a received_invite
-  const idx = battles.findIndex(b => b.id === battleId);
-  if (idx !== -1) battles.splice(idx, 1);
+  if (ws && wsIsConnected) {
+    ws.send(JSON.stringify({
+      type: 'ACCEPT_CHALLENGE',
+      payload: { battleId }
+    }));
+  } else {
+    throw new Error("Cannot accept challenge: Backend disconnected.");
+  }
 
-  battles.push({
-    id: battleId, type, opponent, status: "active", issueNumber: String(issueNumber), challengerRepo: challengerRepo,
-    startDate: todayISO(), endDate: new Date(Date.now() + parseInt(duration) * 86_400_000).toISOString().slice(0, 10),
-  });
-  await saveBattles(battles);
-  
   chrome.notifications.create({
     type: "basic", iconUrl: "/assets/icons/icon-128.png",
     title: "⚔️ Battle Started!",
@@ -450,83 +561,8 @@ async function acceptChallenge(payload) {
 }
 
 async function pollIssuesHandler() {
-  const profile = await getUserProfile();
-  if (!profile) return;
-  const repoName = await getRepoName();
-  let modified = false;
-  let battles = (await getBattles()) || [];
-
-  // Search globally for incoming challenges: "CHALLENGE:: opponent:MY_USER is:open"
-  try {
-     const query = `CHALLENGE:: opponent:${profile.login} is:open`;
-     const results = await searchIssues(query);
-     let newCount = 0;
-
-     if (results && results.items) {
-       for (const issue of results.items) {
-         const b = issue.body || "";
-         if (!b.includes(`opponent:${profile.login}`)) continue;
-
-         const matchId = b.match(/id:(battle_[a-z0-z0-9]+)/);
-         if (!matchId) continue;
-         const battleId = matchId[1];
-
-         if (battles.some(x => x.id === battleId)) continue; // Already tracked
-
-         const matchType = b.match(/CHALLENGE::([a-z0-9-]+)::/);
-         const matchDur = b.match(/duration:(\d+)/);
-
-         battles.push({
-           id: battleId,
-           type: matchType ? matchType[1] : "unknown",
-           duration: matchDur ? matchDur[1] : 30,
-           opponent: issue.user.login,
-           status: "received_invite",
-           issueNumber: issue.number,
-           challengerRepo: issue.user.login,
-         });
-         newCount++;
-         modified = true;
-       }
-     }
-     
-     if (newCount > 0) {
-        chrome.notifications.create({
-          type: "basic", iconUrl: "/assets/icons/icon-128.png",
-          title: "⚔️ New DSA Challenge!",
-          message: `You received ${newCount} new battle challenge(s). Open DSA Tracker to accept!`
-        });
-     }
-  } catch (e) {
-     console.error("[DSA Tracker] Error polling issues:", e);
-  }
-
-  // Poll active/pending battles for comments (Acceptance / Losses)
-  for (const b of battles) {
-     try {
-       if (b.status === "pending_invite" || b.status === "active") {
-         const comments = await fetchIssueComments(b.challengerRepo, repoName, b.issueNumber);
-         if (!comments) continue;
-
-         for (const c of comments) {
-           const body = c.body || "";
-           if (b.status === "pending_invite" && body.includes(`ACCEPTED::${b.id}`)) {
-             b.status = "active";
-             b.endDate = new Date(Date.now() + parseInt(b.duration || 30) * 86_400_000).toISOString().slice(0, 10);
-             modified = true;
-             chrome.notifications.create({ type: "basic", iconUrl: "/assets/icons/icon-128.png", title: "⚔️ Challenge Accepted!", message: `${b.opponent} accepted your challenge. Let the battle begin!` });
-           } 
-           else if (b.status === "active" && body.includes(`BATTLE_RESULT::LOSER::${b.id}`) && c.user.login === b.opponent) {
-             b.status = "won";
-             modified = true;
-             chrome.notifications.create({ type: "basic", iconUrl: "/assets/icons/icon-128.png", title: "🏆 Battle Won!", message: `${b.opponent} broke their streak! You win the battle.` });
-           }
-         }
-       }
-     } catch (e) {}
-  }
-
-  if (modified) await saveBattles(battles);
+  // Deprecated: Backend via WebSockets manages issue polling instantly.
+  return;
 }
 
 async function pollBattlesHandler() {
@@ -554,10 +590,14 @@ async function pollBattlesHandler() {
       if (myMissedDay) {
          modified = true;
          b.status = "lost";
-         try {
-           await addIssueComment(b.challengerRepo || profile.login, repoName, b.issueNumber, `BATTLE_RESULT::LOSER::${b.id}`);
-           await closeIssue(b.challengerRepo || profile.login, repoName, b.issueNumber);
-         } catch (e) {}
+         
+         if (ws && wsIsConnected) {
+           ws.send(JSON.stringify({
+             type: 'BATTLE_LOST',
+             payload: { battleId: b.id }
+           }));
+         }
+         
          chrome.notifications.create({ type: "basic", iconUrl: "/assets/icons/icon-128.png", title: "💔 Streak Broken!", message: `You missed a day and lost the battle against ${b.opponent}.` });
       }
    }

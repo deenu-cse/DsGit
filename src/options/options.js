@@ -40,8 +40,10 @@ function showToast(msg) {
   document.getElementById("s-day").textContent    = `Day ${dayNumber ?? 1}`;
   document.getElementById("s-breaks").textContent = (streakData.breaks ?? []).length;
 
-  // Toggles
-  const s = settings ?? { reminder: true, autoPush: true, showBadge: true, sound: false };
+  // Toggles & Email
+  const s = settings ?? { reminder: true, autoPush: true, showBadge: true, sound: false, email: "" };
+  document.getElementById("field-email").value = s.email ?? "";
+  
   document.querySelectorAll(".toggle").forEach(btn => {
     const key = btn.dataset.key;
     if (s[key] === false) btn.classList.remove("on");
@@ -80,7 +82,24 @@ function showToast(msg) {
     document.querySelectorAll(".toggle").forEach(btn => {
       newSettings[btn.dataset.key] = btn.classList.contains("on");
     });
+    
+    newSettings.email = document.getElementById("field-email").value.trim();
     await saveSettings(newSettings);
+    
+    // Attempt to sync email with backend if user is logged in
+    const profile = document.getElementById("field-user").value;
+    if (profile && newSettings.email) {
+      try {
+        await fetch('https://api-dsgit.onrender.com/api/update-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: profile, email: newSettings.email })
+        });
+      } catch(e) {
+        console.error("Failed to sync email to backend:", e);
+      }
+    }
+    
     showToast("✅ Settings saved!");
   };
 
