@@ -22,6 +22,9 @@ export const STORAGE_KEYS = {
   SETTINGS: "user_settings",
   SNAPSHOTS: "code_snapshots",        // Code Time Machine snapshots
   PUSH_HISTORY: "push_history",          // Array of all pushes
+  BATTLES: "dsa_battles",             // Active and past battles
+  BADGES: "dsa_badges",               // Unlocked battle badges
+  STATS_CACHE: "dsa_stats_cache",     // Cache for friend's stats.json
 };
 
 // Platform detection config
@@ -97,6 +100,8 @@ export const STREAK_MILESTONES = [
 
 // Reminder alarm name
 export const REMINDER_ALARM = "daily_reminder";
+export const BATTLES_POLL_ALARM = "poll_battles";
+export const ISSUES_POLL_ALARM = "poll_issues";
 export const REMINDER_HOUR = 21; // 9 PM
 
 // Snapshot settings (Code Time Machine)

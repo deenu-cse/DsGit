@@ -4,6 +4,7 @@
 import {
   GITHUB_CLIENT_ID, GITHUB_AUTH_URL, GITHUB_REDIRECT_URI,
   GITHUB_SCOPES, REMINDER_ALARM, REMINDER_HOUR, MAX_SNAPSHOTS,
+  BATTLES_POLL_ALARM, ISSUES_POLL_ALARM,
 } from "../shared/constants.js";
 
 import {
@@ -13,11 +14,15 @@ import {
   recordPush, appendPushHistory, getPushHistory,
   getCurrentDayNumber, getStreakData, saveStreakData,
   getSnapshots, saveSnapshots,
+  getBattles, saveBattles, getBadges, saveBadges,
+  getStatsCache, saveStatsCache,
 } from "../shared/storage.js";
 
 import {
   fetchAuthenticatedUser, ensureRepo, pushFilesToRepo,
-  buildReadme,
+  buildReadme, createIssue, addIssueComment, closeIssue,
+  fetchRepositoryIssues, fetchUserStatsJSON, searchIssues,
+  fetchIssueComments,
 } from "../shared/github-api.js";
 
 import {
@@ -29,6 +34,7 @@ import {
 chrome.runtime.onInstalled.addListener(async ({ reason }) => {
   console.log("[DSA Tracker] onInstalled:", reason);
   await scheduleReminder();
+  await setupBattleAlarms();
 
   // Clean up any old snapshots that may have \u00a0 corruption from
   // the legacy .view-lines DOM fallback. Run on every install/update.
@@ -54,6 +60,8 @@ chrome.runtime.onInstalled.addListener(async ({ reason }) => {
 // ─── Alarm handler — daily reminder ──────────────────────────────────────────
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name === BATTLES_POLL_ALARM) return pollBattlesHandler();
+  if (alarm.name === ISSUES_POLL_ALARM) return pollIssuesHandler();
   if (alarm.name !== REMINDER_ALARM) return;
 
   const token = await getAccessToken();
@@ -88,6 +96,13 @@ async function scheduleReminder() {
   fire.setHours(REMINDER_HOUR, 0, 0, 0);
   if (fire <= now) fire.setDate(fire.getDate() + 1);
   chrome.alarms.create(REMINDER_ALARM, { when: fire.getTime() });
+}
+
+async function setupBattleAlarms() {
+  await chrome.alarms.clear(BATTLES_POLL_ALARM);
+  await chrome.alarms.clear(ISSUES_POLL_ALARM);
+  chrome.alarms.create(BATTLES_POLL_ALARM, { periodInMinutes: 360 });
+  chrome.alarms.create(ISSUES_POLL_ALARM, { periodInMinutes: 30 });
 }
 
 // ─── Message router ───────────────────────────────────────────────────────────
@@ -125,6 +140,15 @@ async function handleMessage(msg) {
 
     case "GET_POPUP_DATA":
       return getPopupData();
+
+    case "SEND_CHALLENGE":
+      return sendChallenge(msg.payload);
+
+    case "FETCH_FRIEND_STATS":
+      return handleFetchFriendStats(msg.payload);
+
+    case "ACCEPT_CHALLENGE":
+      return acceptChallenge(msg.payload);
 
     default:
       throw new Error(`Unknown message type: ${msg.type}`);
@@ -253,13 +277,44 @@ async function pushSolution(payload) {
   const commitMessage =
     `✅ Day-${dayNumber}: ${questionName} [${platform}]${difficulty ? ` — ${difficulty}` : ""}`;
 
+  // Pre-calculate streak
+  const lastPushDate = streakBefore.lastPushDate;
+  let nextCurrent = lastPushDate ? streakBefore.currentStreak : 0;
+  let nextLongest = streakBefore.longestStreak;
+  if (lastPushDate) {
+    const diffDays = Math.round((new Date(today) - new Date(lastPushDate)) / 86_400_000);
+    if (diffDays > 1) nextCurrent = 1;
+    else if (diffDays === 1) nextCurrent += 1;
+  } else {
+    nextCurrent = 1;
+  }
+  nextLongest = Math.max(nextLongest, nextCurrent);
+
+  const battles = (await getBattles()) || [];
+  const badges = (await getBadges()) || [];
+  const signupDate = (await getSignupDate()) || today;
+
+  const statsObj = {
+    username: profile.login,
+    currentStreak: nextCurrent,
+    longestStreak: nextLongest,
+    totalSolved: pushHistory.length + 1,
+    lastPushDate: today,
+    signupDate,
+    battles,
+    badges,
+  };
+  const statsString = JSON.stringify(statsObj, null, 2);
+  const betterReadme = buildReadme(profile, [newEntry, ...pushHistory], { currentStreak: nextCurrent, longestStreak: nextLongest, breaks: streakBefore.breaks }, badges, battles);
+
   const { commitSHA } = await pushFilesToRepo({
     owner:         profile.login,
     repo:          repoName,
     commitMessage,
     files: [
       { path: filePath,     content: fileContent },
-      { path: "README.md",  content: updatedReadme },
+      { path: "README.md",  content: betterReadme },
+      { path: "stats.json", content: statsString },
     ],
   });
 
@@ -317,6 +372,8 @@ async function getPopupData() {
   const dayNumber   = await getCurrentDayNumber();
   const signupDate  = await getSignupDate();
   const pushHistory = (await getPushHistory()).slice(0, 10);
+  const battles     = await getBattles() || [];
+  const badges      = await getBadges() || [];
 
   return {
     profile,
@@ -325,5 +382,185 @@ async function getPopupData() {
     dayNumber,
     signupDate,
     recentPushes: pushHistory,
+    battles,
+    badges
   };
+}
+
+// ─── Battles Feature ─────────────────────────────────────────────────────────
+
+async function handleFetchFriendStats({ friendUsername }) {
+  const repoName = await getRepoName(); 
+  const stats = await fetchUserStatsJSON(friendUsername, repoName);
+  if (stats && stats.error === "NOT_FOUND") throw new Error(`${friendUsername} hasn't set up DSA Tracker yet!`);
+  return { success: true, stats };
+}
+
+async function sendChallenge(payload) {
+  const { opponent, type, duration } = payload;
+  const profile = await getUserProfile();
+  const repoName = await getRepoName();
+  if (opponent.toLowerCase() === profile.login.toLowerCase()) throw new Error("You can't challenge yourself!");
+  
+  await handleFetchFriendStats({ friendUsername: opponent }); // ensure repo exists
+
+  const title = `DSA Battle Challenge from @${profile.login}`;
+  const battleId = `battle_` + Date.now().toString(36);
+  const body = `CHALLENGE::${type}::duration:${duration}::id:${battleId}::opponent:${opponent}`;
+
+  const issueRes = await createIssue(profile.login, repoName, title, body);
+
+  const battles = (await getBattles()) || [];
+  battles.push({
+    id: battleId, type, opponent, status: "pending_invite",
+    issueNumber: issueRes.number,
+    challengerRepo: profile.login,
+    startDate: todayISO(), duration 
+  });
+  await saveBattles(battles);
+
+  return { success: true, battleId };
+}
+
+async function acceptChallenge(payload) {
+  const { opponent, battleId, issueNumber, type, duration, challengerRepo } = payload;
+  const repoName = await getRepoName();
+
+  await addIssueComment(challengerRepo, repoName, issueNumber, `ACCEPTED::${battleId}`);
+
+  const battles = (await getBattles()) || [];
+  
+  // Clean up if it was a received_invite
+  const idx = battles.findIndex(b => b.id === battleId);
+  if (idx !== -1) battles.splice(idx, 1);
+
+  battles.push({
+    id: battleId, type, opponent, status: "active", issueNumber: String(issueNumber), challengerRepo: challengerRepo,
+    startDate: todayISO(), endDate: new Date(Date.now() + parseInt(duration) * 86_400_000).toISOString().slice(0, 10),
+  });
+  await saveBattles(battles);
+  
+  chrome.notifications.create({
+    type: "basic", iconUrl: "/assets/icons/icon-128.png",
+    title: "⚔️ Battle Started!",
+    message: `You've accepted the challenge against ${opponent}. Don't break your streak!`
+  });
+
+  return { success: true };
+}
+
+async function pollIssuesHandler() {
+  const profile = await getUserProfile();
+  if (!profile) return;
+  const repoName = await getRepoName();
+  let modified = false;
+  let battles = (await getBattles()) || [];
+
+  // Search globally for incoming challenges: "CHALLENGE:: opponent:MY_USER is:open"
+  try {
+     const query = `CHALLENGE:: opponent:${profile.login} is:open`;
+     const results = await searchIssues(query);
+     let newCount = 0;
+
+     if (results && results.items) {
+       for (const issue of results.items) {
+         const b = issue.body || "";
+         if (!b.includes(`opponent:${profile.login}`)) continue;
+
+         const matchId = b.match(/id:(battle_[a-z0-z0-9]+)/);
+         if (!matchId) continue;
+         const battleId = matchId[1];
+
+         if (battles.some(x => x.id === battleId)) continue; // Already tracked
+
+         const matchType = b.match(/CHALLENGE::([a-z0-9-]+)::/);
+         const matchDur = b.match(/duration:(\d+)/);
+
+         battles.push({
+           id: battleId,
+           type: matchType ? matchType[1] : "unknown",
+           duration: matchDur ? matchDur[1] : 30,
+           opponent: issue.user.login,
+           status: "received_invite",
+           issueNumber: issue.number,
+           challengerRepo: issue.user.login,
+         });
+         newCount++;
+         modified = true;
+       }
+     }
+     
+     if (newCount > 0) {
+        chrome.notifications.create({
+          type: "basic", iconUrl: "/assets/icons/icon-128.png",
+          title: "⚔️ New DSA Challenge!",
+          message: `You received ${newCount} new battle challenge(s). Open DSA Tracker to accept!`
+        });
+     }
+  } catch (e) {
+     console.error("[DSA Tracker] Error polling issues:", e);
+  }
+
+  // Poll active/pending battles for comments (Acceptance / Losses)
+  for (const b of battles) {
+     try {
+       if (b.status === "pending_invite" || b.status === "active") {
+         const comments = await fetchIssueComments(b.challengerRepo, repoName, b.issueNumber);
+         if (!comments) continue;
+
+         for (const c of comments) {
+           const body = c.body || "";
+           if (b.status === "pending_invite" && body.includes(`ACCEPTED::${b.id}`)) {
+             b.status = "active";
+             b.endDate = new Date(Date.now() + parseInt(b.duration || 30) * 86_400_000).toISOString().slice(0, 10);
+             modified = true;
+             chrome.notifications.create({ type: "basic", iconUrl: "/assets/icons/icon-128.png", title: "⚔️ Challenge Accepted!", message: `${b.opponent} accepted your challenge. Let the battle begin!` });
+           } 
+           else if (b.status === "active" && body.includes(`BATTLE_RESULT::LOSER::${b.id}`) && c.user.login === b.opponent) {
+             b.status = "won";
+             modified = true;
+             chrome.notifications.create({ type: "basic", iconUrl: "/assets/icons/icon-128.png", title: "🏆 Battle Won!", message: `${b.opponent} broke their streak! You win the battle.` });
+           }
+         }
+       }
+     } catch (e) {}
+  }
+
+  if (modified) await saveBattles(battles);
+}
+
+async function pollBattlesHandler() {
+   const profile = await getUserProfile();
+   if (!profile) return;
+   const repoName = await getRepoName();
+   let battles = (await getBattles()) || [];
+   if (battles.length === 0) return;
+
+   let modified = false;
+   const today = todayISO();
+   const myStats = await getStreakData();
+
+   for (let b of battles) {
+      if (b.status !== "active") continue;
+
+      let myMissedDay = false;
+      if (myStats.lastPushDate) {
+         const diff = Math.round((new Date(today) - new Date(myStats.lastPushDate)) / 86400000);
+         if (diff > 1) myMissedDay = true;
+      } else {
+         myMissedDay = true;
+      }
+
+      if (myMissedDay) {
+         modified = true;
+         b.status = "lost";
+         try {
+           await addIssueComment(b.challengerRepo || profile.login, repoName, b.issueNumber, `BATTLE_RESULT::LOSER::${b.id}`);
+           await closeIssue(b.challengerRepo || profile.login, repoName, b.issueNumber);
+         } catch (e) {}
+         chrome.notifications.create({ type: "basic", iconUrl: "/assets/icons/icon-128.png", title: "💔 Streak Broken!", message: `You missed a day and lost the battle against ${b.opponent}.` });
+      }
+   }
+
+   if (modified) await saveBattles(battles);
 }

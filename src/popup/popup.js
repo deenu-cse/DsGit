@@ -219,6 +219,32 @@ function renderDashboard(data) {
     $("today-badge").classList.add("hidden");
     showScreen("login");
   };
+
+  // Battles handling
+  renderBattlesUI(data.battles || [], data.badges || []);
+
+  // Set up Tabs
+  $("tab-dash").onclick = () => switchTab("dash");
+  $("tab-battles").onclick = () => switchTab("battles");
+}
+
+function switchTab(tab) {
+  $("view-dash").style.display = "none";
+  $("view-battles").style.display = "none";
+  $("tab-dash").style.opacity = "0.5";
+  $("tab-dash").style.borderBottom = "none";
+  $("tab-battles").style.opacity = "0.5";
+  $("tab-battles").style.borderBottom = "none";
+  
+  if (tab === "dash") {
+    $("view-dash").style.display = "block";
+    $("tab-dash").style.opacity = "1";
+    $("tab-dash").style.borderBottom = "2px solid #22c55e";
+  } else {
+    $("view-battles").style.display = "block";
+    $("tab-battles").style.opacity = "1";
+    $("tab-battles").style.borderBottom = "2px solid #a855f7";
+  }
 }
 
 // ─── Animated Counter ─────────────────────────────────────────────────────────
@@ -444,3 +470,119 @@ function showErrorToast(msg) {
     setTimeout(() => el.remove(), 350);
   }, 4000);
 }
+
+// ─── Battles UI Logic ─────────────────────────────────────────────────────────
+
+function renderBattlesUI(battles, badges) {
+  const c = $("active-battles-container");
+  c.innerHTML = "";
+  
+  if (!battles || battles.length === 0) {
+    c.innerHTML = `<p style="color: #a1a1aa; font-size: 13px; text-align: center; margin: 0;">No active battles. Start one below!</p>`;
+  } else {
+    battles.forEach(b => {
+      const el = document.createElement("div");
+      el.style.background = "rgba(0,0,0,0.3)";
+      el.style.border = "1px solid rgba(255,255,255,0.1)";
+      el.style.borderRadius = "8px";
+      el.style.padding = "10px";
+      el.style.marginBottom = "8px";
+      
+      let statusHtml = "";
+      if (b.status === "received_invite") {
+         statusHtml = `<button data-id="${b.id}" class="btn-accept-battle" style="background:#a855f7; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:bold; width:100%; margin-top:8px;">Accept Challenge</button>`;
+      } else if (b.status === "pending_invite") {
+         statusHtml = `<span style="color:#fdba74; font-size:12px;">⏰ Waiting for opponent...</span>`;
+      } else if (b.status === "active") {
+         const daysLeft = Math.ceil((new Date(b.endDate) - new Date())/86400000);
+         statusHtml = `<span style="color:#86efac; font-size:12px;">🔥 Active • ${daysLeft} days left</span>`;
+      } else if (b.status === "won") {
+         statusHtml = `<span style="color:#fbbf24; font-size:12px;">🏆 You Won!</span>`;
+      } else if (b.status === "lost") {
+         statusHtml = `<span style="color:#f87171; font-size:12px;">💔 You Lost!</span>`;
+      } else {
+         statusHtml = `<span style="color:#a1a1aa; font-size:12px;">Draw</span>`;
+      }
+
+      const cleanType = (b.type || "").split("-").join(" ").toUpperCase();
+      el.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="color:#fff; font-weight:600; font-size:13px;">vs @${b.opponent}</span>
+          <span style="color:#a1a1aa; font-size:11px;">${cleanType}</span>
+        </div>
+        <div style="margin-top:8px;">${statusHtml}</div>
+      `;
+      c.appendChild(el);
+    });
+  }
+
+  // Bind accept buttons
+  document.querySelectorAll(".btn-accept-battle").forEach(btn => {
+    btn.onclick = async () => {
+      const id = btn.getAttribute("data-id");
+      const b = battles.find(x => x.id === id);
+      btn.textContent = "Accepting...";
+      btn.disabled = true;
+      try {
+        await send("ACCEPT_CHALLENGE", { 
+           opponent: b.opponent, 
+           battleId: b.id, 
+           issueNumber: b.issueNumber, 
+           type: b.type, 
+           duration: b.duration,
+           challengerRepo: b.challengerRepo
+        });
+        const updatedData = await send("GET_POPUP_DATA");
+        renderBattlesUI(updatedData.battles, updatedData.badges);
+      } catch (e) {
+        showErrorToast(e.message || "Failed to accept challenge");
+        btn.textContent = "Accept Challenge";
+        btn.disabled = false;
+      }
+    };
+  });
+
+  const bC = $("badges-container");
+  bC.innerHTML = "";
+  if (!badges || badges.length === 0) {
+    bC.innerHTML = `<p style="color: #52525b; font-size: 13px; margin: 0;">Play a battle to unlock badges!</p>`;
+  } else {
+    badges.forEach(bg => {
+       const badgeEl = document.createElement("span");
+       badgeEl.textContent = bg;
+       badgeEl.style.cssText = "background: rgba(168,85,247,0.2); border: 1px solid rgba(168,85,247,0.4); color: #d8b4fe; padding: 4px 8px; border-radius: 12px; font-size: 12px;";
+       bC.appendChild(badgeEl);
+    });
+  }
+}
+
+// ─── Challenge Sending Logic ──────────────────────────────────────────────────
+$("btn-send-challenge").onclick = async () => {
+  const opp = $("battle-target").value.trim();
+  if (!opp) return showErrorToast("Enter opponent's GitHub username");
+  const dTypeDom = $("battle-type");
+  const type = dTypeDom.value; 
+  const duration = type.includes("30") ? 30 : type.includes("7") ? 7 : type.includes("90") ? 90 : 14;
+
+  const btn = $("btn-send-challenge");
+  btn.textContent = "Sending...";
+  btn.disabled = true;
+
+  try {
+    const res = await send("SEND_CHALLENGE", { opponent: opp, type, duration });
+    if (!res?.success) throw new Error(res?.error || "Unknown Error");
+    
+    const updatedData = await send("GET_POPUP_DATA");
+    renderBattlesUI(updatedData.battles, updatedData.badges);
+    btn.textContent = "Sent! 🔥";
+    $("battle-target").value = "";
+  } catch (e) {
+    showErrorToast(e.message);
+    btn.textContent = "Send Challenge 🔥";
+  } finally {
+    setTimeout(() => { 
+      btn.disabled = false; 
+      if (btn.textContent === "Sent! 🔥") btn.textContent = "Send Challenge 🔥"; 
+    }, 2000);
+  }
+};

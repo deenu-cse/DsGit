@@ -4,9 +4,15 @@
 import { GITHUB_API_BASE } from "./constants.js";
 import { getAccessToken } from "./storage.js";
 
+let backoffUntil = 0;
+
 // ─── Core fetch wrapper ───────────────────────────────────────────────────────
 
 async function ghFetch(path, options = {}) {
+  if (Date.now() < backoffUntil) {
+    throw new Error("RATE_LIMITED_BACKOFF");
+  }
+
   const token = await getAccessToken();
   if (!token) throw new Error("NOT_AUTHENTICATED");
 
@@ -21,6 +27,17 @@ async function ghFetch(path, options = {}) {
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
+
+  if (res.status === 429 || res.status === 403) {
+    const remaining = res.headers.get("x-ratelimit-remaining");
+    const retryAfter = res.headers.get("retry-after");
+    
+    if (remaining === "0" || res.status === 429 || retryAfter) {
+      const pauseSeconds = retryAfter ? parseInt(retryAfter, 10) : 15 * 60; // default 15m
+      backoffUntil = Date.now() + pauseSeconds * 1000;
+      throw new Error(`RATE_LIMITED`);
+    }
+  }
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -69,6 +86,58 @@ export async function ensureRepo(owner, repoName) {
     await createRepo(repoName);
     // GitHub needs a moment after creation before API calls work
     await new Promise(r => setTimeout(r, 1500));
+  }
+}
+
+// ─── Issues & Notifications API ───────────────────────────────────────────────
+
+export async function createIssue(owner, repo, title, body) {
+  return ghFetch(`/repos/${owner}/${repo}/issues`, {
+    method: "POST",
+    body: { title, body }
+  });
+}
+
+export async function addIssueComment(owner, repo, issueNumber, body) {
+  return ghFetch(`/repos/${owner}/${repo}/issues/${issueNumber}/comments`, {
+    method: "POST",
+    body: { body }
+  });
+}
+
+export async function closeIssue(owner, repo, issueNumber) {
+  return ghFetch(`/repos/${owner}/${repo}/issues/${issueNumber}`, {
+    method: "PATCH",
+    body: { state: "closed" }
+  });
+}
+
+export async function fetchRepositoryIssues(owner, repo) {
+  return ghFetch(`/repos/${owner}/${repo}/issues?state=open&sort=created&direction=desc`);
+}
+
+export async function fetchIssueComments(owner, repo, issueNumber) {
+  return ghFetch(`/repos/${owner}/${repo}/issues/${issueNumber}/comments`);
+}
+
+export async function searchIssues(query) {
+  return ghFetch(`/search/issues?q=${encodeURIComponent(query)}`);
+}
+
+// ─── Stats JSON Sync ──────────────────────────────────────────────────────────
+
+export async function fetchUserStatsJSON(owner, repo) {
+  try {
+    const data = await ghFetch(`/repos/${owner}/${repo}/contents/stats.json`);
+    if (data && data.content) {
+      return JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\n/g, "")))));
+    }
+    return null;
+  } catch (e) {
+    if (e.message.includes("404") || e.message.includes("Not Found")) {
+      return { error: "NOT_FOUND" }; // User doesn't have it set up
+    }
+    throw e;
   }
 }
 
@@ -170,11 +239,11 @@ export async function fetchReadme(owner, repo) {
 /**
  * Build the README table from push history.
  */
-export function buildReadme(userProfile, pushHistory, streakData) {
-  const { login, name, avatar_url } = userProfile;
+export function buildReadme(userProfile, pushHistory, streakData, badges = [], battles = []) {
+  const { login, name } = userProfile;
   const displayName = name || login;
 
-  const badge = getBadgeForStreak(streakData.longestStreak);
+  const currentBadge = getBadgeForStreak(streakData.longestStreak);
 
   const tableRows = pushHistory
     .slice(0, 200)
@@ -182,6 +251,20 @@ export function buildReadme(userProfile, pushHistory, streakData) {
       `| ${p.dayNumber} | [${p.questionName}](${p.questionUrl || "#"}) | ${p.platform} | ${p.difficulty || "—"} | ${p.language} | ${p.date} |`
     )
     .join("\n");
+    
+  let battlesSec = "";
+  if (badges.length > 0 || battles.length > 0) {
+    battlesSec = `\n## ⚔️ Battles & Badges\n\n`;
+    if (badges.length > 0) {
+       battlesSec += `**Unlocked Badges:**\n${badges.map(b => `- 🎖️ ${b}`).join("\n")}\n\n`;
+    }
+    if (battles.length > 0) {
+       const w = battles.filter(b => b.status === "won").length;
+       const l = battles.filter(b => b.status === "lost").length;
+       battlesSec += `**Battle Record:** ${w} Wins / ${l} Losses\n`;
+    }
+    battlesSec += `\n---`;
+  }
 
   return `# 🔥 DSA Practice — ${displayName}
 
@@ -195,7 +278,7 @@ export function buildReadme(userProfile, pushHistory, streakData) {
 |:-:|:-:|:-:|:-:|
 | **${streakData.currentStreak} days** | **${streakData.longestStreak} days** | **${pushHistory.length}** | **${streakData.breaks.length}** |
 
-${badge ? `\n## 🏅 Achievement\n\n**${badge}**\n` : ""}
+${currentBadge ? `\n## 🏅 Achievement\n\n**${currentBadge}**\n` : ""}${battlesSec}
 
 ---
 

@@ -41,6 +41,15 @@ export async function setSignupDate(iso) { return storageSet(STORAGE_KEYS.SIGNUP
 export async function getSettings() { return storageGet(STORAGE_KEYS.SETTINGS); }
 export async function saveSettings(s) { return storageSet(STORAGE_KEYS.SETTINGS, s); }
 
+export async function getBattles() { return storageGet(STORAGE_KEYS.BATTLES); }
+export async function saveBattles(b) { return storageSet(STORAGE_KEYS.BATTLES, b); }
+
+export async function getBadges() { return storageGet(STORAGE_KEYS.BADGES); }
+export async function saveBadges(b) { return storageSet(STORAGE_KEYS.BADGES, b); }
+
+export async function getStatsCache() { return storageGet(STORAGE_KEYS.STATS_CACHE); }
+export async function saveStatsCache(c) { return storageSet(STORAGE_KEYS.STATS_CACHE, c); }
+
 // ── BUG FIX: must AWAIT storageGet before applying ?? [] ─────────────────────
 export async function getPushHistory() {
   const val = await storageGet(STORAGE_KEYS.PUSH_HISTORY);
