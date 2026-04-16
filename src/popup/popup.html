@@ -115,6 +115,7 @@
   <div class="dash-tabs" style="display: flex; justify-content: center; gap: 24px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">
     <button id="tab-dash" class="tab-btn" style="background: none; border: none; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; opacity: 1; border-bottom: 2px solid #22c55e;">Dashboard</button>
     <button id="tab-battles" class="tab-btn" style="background: none; border: none; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; opacity: 0.5;">Battles ⚔️</button>
+    <button id="tab-arena" class="tab-btn" style="background: none; border: none; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; opacity: 0.5;">Arena 🌐</button>
   </div>
 
   <div id="view-dash" class="view-pane active" style="display: block;">
@@ -228,8 +229,23 @@
         <option value="consistency-king">🌙 90-Day Consistency King</option>
       </select>
 
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <label style="color: #fff; font-size: 13px; font-weight: 500;">
+          <input type="checkbox" id="battle-is-public" style="margin-right: 6px;"> Make it public
+        </label>
+        <select id="battle-max-players" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: #fff; display: none;">
+          <option value="2">2 Players</option>
+          <option value="5">5 Players</option>
+          <option value="10">10 Players</option>
+          <option value="20">20 Players</option>
+        </select>
+      </div>
+
       <button id="btn-send-challenge" style="width: 100%; background: linear-gradient(135deg, #22c55e, #15803d); color: #fff; border: none; padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; transition: transform 0.2s;">
         Send Challenge 🔥
+      </button>
+      <button id="btn-create-open" style="width: 100%; background: transparent; border: 1px solid #10b981; color: #10b981; padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; margin-top: 8px; display: none;">
+        🌐 Create Open Battle
       </button>
     </div>
 
@@ -239,7 +255,25 @@
         <p style="color: #52525b; font-size: 13px; margin: 0;">Play a battle to unlock badges!</p>
       </div>
     </div>
+    </div>
   </div> <!-- /view-battles -->
+
+  <!-- ── Arena View ──────────────────────────────────────────────────────── -->
+  <div id="view-arena" class="view-pane" style="display: none;">
+    <div style="margin-bottom: 16px;">
+      <h3 style="margin: 0 0 12px 0; color: #fff; font-size: 14px; font-weight: 600;">Live Battles</h3>
+      <div id="arena-list-container">
+        <p style="color: #a1a1aa; font-size: 13px; text-align: center;">Loading live battles...</p>
+      </div>
+    </div>
+    <div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 12px; padding: 12px; margin-bottom: 16px; text-align: center;">
+      <span style="font-size: 16px;">🏆</span>
+      <p id="arena-winner-text" style="color: #86efac; font-size: 13px; margin: 4px 0 0 0;">Loading winner...</p>
+    </div>
+    <button id="btn-explore-arena" style="width: 100%; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer;">
+      Explore all battles →
+    </button>
+  </div> <!-- /view-arena -->
 
 </div><!-- /screen-main -->
 

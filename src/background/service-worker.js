@@ -37,15 +37,15 @@ function connectWebSocket() {
   getUserProfile().then(profile => {
     if (!profile) return;
     const WS_URL = `wss://api-dsgit.onrender.com?username=${profile.login}`;
-    
+
     ws = new WebSocket(WS_URL);
-    
+
     ws.onopen = () => {
       console.log("[DSA Tracker] WebSocket Connected");
       wsIsConnected = true;
       wsReconnectDelay = 1000; // Reset backoff
     };
-    
+
     ws.onmessage = async (event) => {
       try {
         const data = JSON.parse(event.data);
@@ -54,14 +54,14 @@ function connectWebSocket() {
         console.error("WS parse error", e);
       }
     };
-    
+
     ws.onclose = () => {
       console.log("[DSA Tracker] WebSocket Disconnected. Reconnecting in " + wsReconnectDelay + "ms...");
       wsIsConnected = false;
       setTimeout(connectWebSocket, wsReconnectDelay);
       wsReconnectDelay = Math.min(wsReconnectDelay * 2, wsMaxDelay);
     };
-    
+
     ws.onerror = (err) => {
       console.error("[DSA Tracker] WebSocket Error:", err);
       ws.close();
@@ -91,7 +91,7 @@ async function handleWebSocketMessage(data) {
         message: `@${battle.challenger} has challenged you to a battle! Open extension to accept.`
       });
     }
-  } 
+  }
   else if (type === 'CHALLENGE_ACCEPTED') {
     const { battleId, opponent } = payload;
     const b = battles.find(x => x.id === battleId);
@@ -165,15 +165,15 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   const token = await getAccessToken();
   if (!token) return;
 
-  const streak  = await getStreakData();
-  const today   = todayISO();
+  const streak = await getStreakData();
+  const today = todayISO();
 
   if (streak.lastPushDate !== today) {
     const dayNumber = await getCurrentDayNumber();
     chrome.notifications.create("daily-reminder", {
-      type:    "basic",
+      type: "basic",
       iconUrl: "/assets/icons/icon-128.png",
-      title:   `🔥 DSA Tracker — Day ${dayNumber}`,
+      title: `🔥 DSA Tracker — Day ${dayNumber}`,
       message: "Aaj ka question abhi tak push nahi hua! Streak mat torna 💪",
       buttons: [{ title: "Open LeetCode" }],
     });
@@ -189,7 +189,7 @@ chrome.notifications.onButtonClicked.addListener((notifId, btnIdx) => {
 
 async function scheduleReminder() {
   await chrome.alarms.clear(REMINDER_ALARM);
-  const now  = new Date();
+  const now = new Date();
   const fire = new Date();
   fire.setHours(REMINDER_HOUR, 0, 0, 0);
   if (fire <= now) fire.setDate(fire.getDate() + 1);
@@ -256,17 +256,17 @@ async function handleMessage(msg) {
 // ─── OAuth flow ───────────────────────────────────────────────────────────────
 
 async function initiateGitHubOAuth() {
-  const state   = crypto.randomUUID();
+  const state = crypto.randomUUID();
   const authURL = new URL(GITHUB_AUTH_URL);
-  authURL.searchParams.set("client_id",    GITHUB_CLIENT_ID);
+  authURL.searchParams.set("client_id", GITHUB_CLIENT_ID);
   authURL.searchParams.set("redirect_uri", GITHUB_REDIRECT_URI);
-  authURL.searchParams.set("scope",        GITHUB_SCOPES);
-  authURL.searchParams.set("state",        state);
+  authURL.searchParams.set("scope", GITHUB_SCOPES);
+  authURL.searchParams.set("state", state);
 
   let redirectUrl;
   try {
     redirectUrl = await chrome.identity.launchWebAuthFlow({
-      url:         authURL.toString(),
+      url: authURL.toString(),
       interactive: true,
     });
   } catch (e) {
@@ -283,9 +283,9 @@ async function initiateGitHubOAuth() {
 
   // Exchange code → token via Cloudflare Worker proxy
   const tokenRes = await fetch("https://fancy-hall-6618.vdeendayal866.workers.dev", {
-    method:  "POST",
+    method: "POST",
     headers: { "Content-Type": "application/json" },
-    body:    JSON.stringify({ code }),
+    body: JSON.stringify({ code }),
   });
   const tokenData = await tokenRes.json();
   if (!tokenData.access_token) throw new Error("Token exchange failed: " + (tokenData.error ?? "unknown"));
@@ -328,7 +328,7 @@ async function handleLogout() {
 
 async function getAuthStatus() {
   try {
-    const token   = await getAccessToken();
+    const token = await getAccessToken();
     const profile = await getUserProfile();
     if (!token) return { authenticated: false, profile: null };
 
@@ -367,18 +367,29 @@ async function pushSolution(payload) {
   if (!repoName) throw new Error("Repo not configured");
 
   const dayNumber = await getCurrentDayNumber();
-  const today     = todayISO();
+  const today = todayISO();
 
   await ensureRepo(profile.login, repoName);
 
-  const filePath   = buildFilePath({ dayNumber, questionName, platformName: platform, difficulty, language });
+  const filePath = buildFilePath({ dayNumber, questionName, platformName: platform, difficulty, language });
   const fileContent = buildCodeFile({
     code, questionName, questionUrl,
     platform, difficulty, language,
     dayNumber, date: today,
   });
 
-  const pushHistory  = await getPushHistory();
+  const pushHistory = await getPushHistory();
+
+  const alreadyPushedToday = pushHistory.some(entry =>
+    entry.date === today &&
+    entry.questionName === questionName &&
+    entry.platform === platform
+  );
+
+  if (alreadyPushedToday) {
+    throw new Error("ALREADY_PUSHED_TODAY");
+  }
+
   const streakBefore = await getStreakData();
 
   const newEntry = {
@@ -423,12 +434,12 @@ async function pushSolution(payload) {
   const betterReadme = buildReadme(profile, [newEntry, ...pushHistory], { currentStreak: nextCurrent, longestStreak: nextLongest, breaks: streakBefore.breaks }, badges, battles);
 
   const { commitSHA } = await pushFilesToRepo({
-    owner:         profile.login,
-    repo:          repoName,
+    owner: profile.login,
+    repo: repoName,
     commitMessage,
     files: [
-      { path: filePath,     content: fileContent },
-      { path: "README.md",  content: betterReadme },
+      { path: filePath, content: fileContent },
+      { path: "README.md", content: betterReadme },
       { path: "stats.json", content: statsString },
     ],
   });
@@ -440,12 +451,30 @@ async function pushSolution(payload) {
 
   const milestone = checkMilestone(streakAfter.currentStreak);
 
+  // Broadcast activity to active battles via WebSocket
+  if (ws && wsIsConnected) {
+    const activeBattles = battles.filter(b => b.status === "active" || b.status === "active"); // Ensure we only send to active battles
+    for (const b of activeBattles) {
+      const points = difficulty === 'Hard' ? 3 : difficulty === 'Medium' ? 2 : 1;
+      ws.send(JSON.stringify({
+        type: 'BATTLE_ACTIVITY',
+        payload: {
+          battleId: b.id,
+          questionName,
+          platform,
+          difficulty,
+          points
+        }
+      }));
+    }
+  }
+
   return {
     success: true,
     filePath,
     commitSHA,
     dayNumber,
-    streak:    streakAfter,
+    streak: streakAfter,
     milestone,
   };
 }
@@ -481,14 +510,14 @@ async function getSnapshotsHandler() {
 // ─── Popup data aggregator ────────────────────────────────────────────────────
 
 async function getPopupData() {
-  const profile     = await getUserProfile();
-  const repoName    = await getRepoName();
-  const streakData  = await getStreakData();
-  const dayNumber   = await getCurrentDayNumber();
-  const signupDate  = await getSignupDate();
+  const profile = await getUserProfile();
+  const repoName = await getRepoName();
+  const streakData = await getStreakData();
+  const dayNumber = await getCurrentDayNumber();
+  const signupDate = await getSignupDate();
   const pushHistory = (await getPushHistory()).slice(0, 10);
-  const battles     = await getBattles() || [];
-  const badges      = await getBadges() || [];
+  const battles = await getBattles() || [];
+  const badges = await getBadges() || [];
 
   return {
     profile,
@@ -505,7 +534,7 @@ async function getPopupData() {
 // ─── Battles Feature ─────────────────────────────────────────────────────────
 
 async function handleFetchFriendStats({ friendUsername }) {
-  const repoName = await getRepoName(); 
+  const repoName = await getRepoName();
   const stats = await fetchUserStatsJSON(friendUsername, repoName);
   if (stats && stats.error === "NOT_FOUND") throw new Error(`${friendUsername} hasn't set up DSA Tracker yet!`);
   return { success: true, stats };
@@ -515,7 +544,7 @@ async function sendChallenge(payload) {
   const { opponent, type, duration } = payload;
   const profile = await getUserProfile();
   if (opponent.toLowerCase() === profile.login.toLowerCase()) throw new Error("You can't challenge yourself!");
-  
+
   await handleFetchFriendStats({ friendUsername: opponent }); // ensure tracker is installed
 
   const battleId = `battle_` + Date.now().toString(36);
@@ -532,7 +561,7 @@ async function sendChallenge(payload) {
   const battles = (await getBattles()) || [];
   battles.push({
     id: battleId, type, opponent, status: "pending_invite",
-    startDate: todayISO(), duration 
+    startDate: todayISO(), duration
   });
   await saveBattles(battles);
 
@@ -541,7 +570,7 @@ async function sendChallenge(payload) {
 
 async function acceptChallenge(payload) {
   const { opponent, battleId, type, duration, challengerRepo } = payload;
-  
+
   if (ws && wsIsConnected) {
     ws.send(JSON.stringify({
       type: 'ACCEPT_CHALLENGE',
@@ -566,41 +595,41 @@ async function pollIssuesHandler() {
 }
 
 async function pollBattlesHandler() {
-   const profile = await getUserProfile();
-   if (!profile) return;
-   const repoName = await getRepoName();
-   let battles = (await getBattles()) || [];
-   if (battles.length === 0) return;
+  const profile = await getUserProfile();
+  if (!profile) return;
+  const repoName = await getRepoName();
+  let battles = (await getBattles()) || [];
+  if (battles.length === 0) return;
 
-   let modified = false;
-   const today = todayISO();
-   const myStats = await getStreakData();
+  let modified = false;
+  const today = todayISO();
+  const myStats = await getStreakData();
 
-   for (let b of battles) {
-      if (b.status !== "active") continue;
+  for (let b of battles) {
+    if (b.status !== "active") continue;
 
-      let myMissedDay = false;
-      if (myStats.lastPushDate) {
-         const diff = Math.round((new Date(today) - new Date(myStats.lastPushDate)) / 86400000);
-         if (diff > 1) myMissedDay = true;
-      } else {
-         myMissedDay = true;
+    let myMissedDay = false;
+    if (myStats.lastPushDate) {
+      const diff = Math.round((new Date(today) - new Date(myStats.lastPushDate)) / 86400000);
+      if (diff > 1) myMissedDay = true;
+    } else {
+      myMissedDay = true;
+    }
+
+    if (myMissedDay) {
+      modified = true;
+      b.status = "lost";
+
+      if (ws && wsIsConnected) {
+        ws.send(JSON.stringify({
+          type: 'BATTLE_LOST',
+          payload: { battleId: b.id }
+        }));
       }
 
-      if (myMissedDay) {
-         modified = true;
-         b.status = "lost";
-         
-         if (ws && wsIsConnected) {
-           ws.send(JSON.stringify({
-             type: 'BATTLE_LOST',
-             payload: { battleId: b.id }
-           }));
-         }
-         
-         chrome.notifications.create({ type: "basic", iconUrl: "/assets/icons/icon-128.png", title: "💔 Streak Broken!", message: `You missed a day and lost the battle against ${b.opponent}.` });
-      }
-   }
+      chrome.notifications.create({ type: "basic", iconUrl: "/assets/icons/icon-128.png", title: "💔 Streak Broken!", message: `You missed a day and lost the battle against ${b.opponent}.` });
+    }
+  }
 
-   if (modified) await saveBattles(battles);
+  if (modified) await saveBattles(battles);
 }

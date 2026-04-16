@@ -21,7 +21,7 @@
 
   const MAX_SNAPS = 10;
   const snapshots = [];    // in-memory ring buffer for current session
-  let _pendingCode = null;  // code saved at the moment submit is clicked
+  let _pendingSubmission = null; // Stores all details when submit is clicked
   let _successTimer = null; // setInterval for success polling
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -516,14 +516,22 @@
 
     console.log("[DSA Tracker] 🚀 Submit clicked:", btn.textContent?.trim());
 
-    // Capture code NOW — before React/SPA navigates away after submission
-    _pendingCode = await getCode();
-    if (_pendingCode) {
-      const snap = { code: _pendingCode, savedAt: Date.now(), url: location.href };
+    // Capture everything NOW — before React/SPA navigates away or DOM changes
+    const code = await getCode();
+    if (code) {
+      _pendingSubmission = {
+        code,
+        questionName: getQuestionName(),
+        questionUrl: location.href,
+        platform: platform.id,
+        difficulty: platform.getDifficulty?.() ?? null,
+        language: getLanguage(),
+      };
+      const snap = { code, savedAt: Date.now(), url: location.href };
       snapshots.unshift(snap);
       if (snapshots.length > MAX_SNAPS) snapshots.length = MAX_SNAPS;
-      safeMessage({ type: "SAVE_SNAPSHOT", payload: { code: _pendingCode, url: location.href } }).catch(() => { });
-      console.log("[DSA Tracker] 📌 Code captured at submit:", _pendingCode.length, "chars");
+      safeMessage({ type: "SAVE_SNAPSHOT", payload: { code, url: location.href } }).catch(() => { });
+      console.log("[DSA Tracker] 📌 Captured submission metadata at submit:", _pendingSubmission.questionName);
     } else {
       console.warn("[DSA Tracker] ⚠️ Could not capture code at submit — bridge may not be ready.");
     }
@@ -553,10 +561,10 @@
 
   async function onSubmitSuccess() {
     await sleep(500);
-    const code = _pendingCode ?? await getCode();
-    _pendingCode = null;
+    const submission = _pendingSubmission;
+    _pendingSubmission = null;
 
-    if (!code?.trim()) {
+    if (!submission?.code?.trim()) {
       showToast(
         "⚠️ Code capture failed.<br><small>Press <b>Ctrl+Shift+G</b> to push manually.</small>",
         "warning"
@@ -564,25 +572,33 @@
       return;
     }
     showToast("🔄 Pushing to GitHub…", "info");
-    await doPush(code);
+    await doPush(submission);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
   //  GITHUB PUSH
   // ═══════════════════════════════════════════════════════════════════════════
 
-  async function doPush(code) {
+  async function doPush(payloadOverride = null) {
     try {
-      const resp = await safeMessage({
-        type: "PUSH_SOLUTION",
-        payload: {
+      let payload = payloadOverride;
+      if (!payload) {
+        // Manual push (Ctrl+Shift+G)
+        const code = await getCode();
+        if (!code) throw new Error("Could not extract code");
+        payload = {
           code,
           questionName: getQuestionName(),
           questionUrl: location.href,
           platform: platform.id,
           difficulty: platform.getDifficulty?.() ?? null,
           language: getLanguage(),
-        },
+        };
+      }
+
+      const resp = await safeMessage({
+        type: "PUSH_SOLUTION",
+        payload
       });
 
       if (!resp) return; // safeMessage already showed "reload" toast
@@ -598,6 +614,7 @@
       );
     } catch (err) {
       const msg = err?.message ?? "";
+      if (msg.includes("ALREADY_PUSHED_TODAY")) return showToast("⚠️ You have already pushed this question today.<br><small>Try pushing another question or come back tomorrow.</small>", "warning");
       if (msg.includes("NOT_AUTHENTICATED")) return showToast("🔐 Login with GitHub — click the extension icon.", "warning");
       if (msg.includes("Repo not configured")) return showToast("⚙️ Set repo name — click the extension icon.", "warning");
       showToast(`❌ Push failed: ${msg}<br><small>Try Ctrl+Shift+G to retry.</small>`, "error");

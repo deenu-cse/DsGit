@@ -226,26 +226,88 @@ function renderDashboard(data) {
   // Set up Tabs
   $("tab-dash").onclick = () => switchTab("dash");
   $("tab-battles").onclick = () => switchTab("battles");
+  $("tab-arena").onclick = () => switchTab("arena");
 }
 
 function switchTab(tab) {
   $("view-dash").style.display = "none";
   $("view-battles").style.display = "none";
+  $("view-arena").style.display = "none";
   $("tab-dash").style.opacity = "0.5";
   $("tab-dash").style.borderBottom = "none";
   $("tab-battles").style.opacity = "0.5";
   $("tab-battles").style.borderBottom = "none";
+  $("tab-arena").style.opacity = "0.5";
+  $("tab-arena").style.borderBottom = "none";
   
   if (tab === "dash") {
     $("view-dash").style.display = "block";
     $("tab-dash").style.opacity = "1";
     $("tab-dash").style.borderBottom = "2px solid #22c55e";
-  } else {
+  } else if (tab === "battles") {
     $("view-battles").style.display = "block";
     $("tab-battles").style.opacity = "1";
     $("tab-battles").style.borderBottom = "2px solid #a855f7";
+  } else {
+    $("view-arena").style.display = "block";
+    $("tab-arena").style.opacity = "1";
+    $("tab-arena").style.borderBottom = "2px solid #3b82f6";
+    loadArenaData();
   }
 }
+
+async function loadArenaData() {
+  try {
+    const res = await fetch('http://localhost:3000/battles/open');
+    const data = await res.json();
+    
+    const arenaContainer = $("arena-list-container");
+    arenaContainer.innerHTML = "";
+    
+    if (data.battles && data.battles.length > 0) {
+      data.battles.slice(0, 3).forEach(b => {
+        const el = document.createElement('div');
+        el.style.cssText = "background: rgba(30, 64, 175, 0.2); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;";
+        el.innerHTML = `
+          <div>
+            <div style="font-size: 13px; font-weight: 600; color: #fff;">@${b.challenger}</div>
+            <div style="font-size: 11px; color: #93c5fd;">${(b.type || '').toUpperCase().replace('-', ' ')}</div>
+            <div style="font-size: 11px; color: #a1a1aa; margin-top: 4px;">${b.participants?.length || 1} joined • ${b.maxPlayers - (b.participants?.length || 1)} spots left</div>
+          </div>
+          <button data-id="${b.battleId}" class="btn-join-open" style="background: #22c55e; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-weight: bold; cursor: pointer;">Join</button>
+        `;
+        arenaContainer.appendChild(el);
+      });
+      
+      document.querySelectorAll(".btn-join-open").forEach(btn => {
+        btn.onclick = () => {
+          chrome.tabs.create({ url: `https://dsatracker.app/battle/${btn.getAttribute('data-id')}` });
+        };
+      });
+    } else {
+      arenaContainer.innerHTML = '<p style="color: #a1a1aa; font-size: 13px; text-align: center;">No open battles right now.</p>';
+    }
+
+    // Load Wall Data for stats
+    const wallRes = await fetch('http://localhost:3000/battles/wall');
+    const wallData = await wallRes.json();
+    if (wallData.wallData?.recentWinners?.length > 0) {
+      const winner = wallData.wallData.recentWinners[0];
+      $("arena-winner-text").textContent = `${winner.winner} just won a ${winner.type}!`;
+    } else {
+      $("arena-winner-text").textContent = `Battles are ongoing!`;
+    }
+
+  } catch(err) {
+    console.error('Arena load error:', err);
+    $("arena-list-container").innerHTML = '<p style="color: #f87171; font-size: 13px; text-align: center;">Could not load arena.</p>';
+  }
+}
+
+$("btn-explore-arena").onclick = () => {
+  chrome.tabs.create({ url: 'https://dsatracker.app/arena' });
+};
+
 
 // ─── Animated Counter ─────────────────────────────────────────────────────────
 
@@ -511,6 +573,33 @@ function renderBattlesUI(battles, badges) {
           <span style="color:#a1a1aa; font-size:11px;">${cleanType}</span>
         </div>
         <div style="margin-top:8px;">${statusHtml}</div>
+        ${b.status === "active" ? `
+        <div style="margin-top: 12px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 6px;">
+          <div style="font-size: 11px; color: #a1a1aa; margin-bottom: 6px; text-transform: uppercase;">Score Breakdown</div>
+          <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+             <div style="flex:1; background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); padding: 4px; border-radius: 4px; text-align: center;">
+                <div style="color: #f87171; font-weight: bold; font-size: 14px;">${b.hardSolved || 0}</div>
+                <div style="color: #fca5a5; font-size: 9px;">Hard (3pts)</div>
+             </div>
+             <div style="flex:1; background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3); padding: 4px; border-radius: 4px; text-align: center;">
+                <div style="color: #fbbf24; font-weight: bold; font-size: 14px;">${b.mediumSolved || 0}</div>
+                <div style="color: #fcd34d; font-size: 9px;">Med (2pts)</div>
+             </div>
+             <div style="flex:1; background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); padding: 4px; border-radius: 4px; text-align: center;">
+                <div style="color: #22c55e; font-weight: bold; font-size: 14px;">${b.easySolved || 0}</div>
+                <div style="color: #86efac; font-size: 9px;">Easy (1pt)</div>
+             </div>
+          </div>
+          <div style="font-size: 10px; color: #d4d4d8; display: flex; justify-content: space-between;">
+            <span>LC: ${b.platforms?.leetcode || 0}</span>
+            <span>GFG: ${b.platforms?.gfg || 0}</span>
+            <span>CN: ${b.platforms?.codingninjas || 0}</span>
+          </div>
+          <div style="margin-top: 8px; font-weight: bold; text-align: center; color: #e4e4e7; font-size: 12px; background: rgba(0,0,0,0.4); padding: 4px; border-radius: 4px;">
+            Your Score: ${b.score || 0} <span style="color: #a1a1aa; font-weight: normal; margin: 0 4px;">vs</span> Opponent: ${b.opponentScore || 0}
+          </div>
+        </div>
+        ` : ''}
       `;
       c.appendChild(el);
     });
@@ -557,6 +646,15 @@ function renderBattlesUI(battles, badges) {
 }
 
 // ─── Challenge Sending Logic ──────────────────────────────────────────────────
+
+$("battle-is-public").onchange = (e) => {
+  const isPublic = e.target.checked;
+  $("battle-max-players").style.display = isPublic ? "block" : "none";
+  $("battle-target").style.display = isPublic ? "none" : "block";
+  $("btn-send-challenge").style.display = isPublic ? "none" : "block";
+  $("btn-create-open").style.display = isPublic ? "block" : "none";
+};
+
 $("btn-send-challenge").onclick = async () => {
   const opp = $("battle-target").value.trim();
   if (!opp) return showErrorToast("Enter opponent's GitHub username");
@@ -584,5 +682,45 @@ $("btn-send-challenge").onclick = async () => {
       btn.disabled = false; 
       if (btn.textContent === "Sent! 🔥") btn.textContent = "Send Challenge 🔥"; 
     }, 2000);
+  }
+};
+
+$("btn-create-open").onclick = async () => {
+  const type = $("battle-type").value;
+  const duration = type.includes("30") ? 30 : type.includes("7") ? 7 : type.includes("90") ? 90 : 14;
+  const maxPlayers = $("battle-max-players").value;
+
+  const btn = $("btn-create-open");
+  btn.textContent = "Creating...";
+  btn.disabled = true;
+
+  try {
+    // We send to backend directly rather than Background since it's an API call, 
+    // but the backend requires the challenger username. We need the current user's JS profile.
+    const authResult = await send("GET_AUTH_STATUS");
+    const challengerUsername = authResult?.profile?.login;
+
+    if (!challengerUsername) throw new Error("Not authenticated");
+
+    const res = await fetch('http://localhost:3000/battles/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type, duration, isPublic: true, maxPlayers, challengerUsername
+      })
+    });
+    
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error);
+
+    btn.textContent = "Created! 🌐";
+    setTimeout(() => {
+      chrome.tabs.create({ url: `https://dsatracker.app/battle/${data.battle.battleId}` });
+    }, 1000);
+
+  } catch (e) {
+    showErrorToast(e.message);
+    btn.textContent = "🌐 Create Open Battle";
+    btn.disabled = false;
   }
 };
