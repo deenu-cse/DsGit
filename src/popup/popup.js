@@ -253,55 +253,151 @@ function switchTab(tab) {
     $("tab-arena").style.opacity = "1";
     $("tab-arena").style.borderBottom = "2px solid #3b82f6";
     loadArenaData();
+    setupArenaFilters();
   }
 }
 
 async function loadArenaData() {
   try {
-    const res = await fetch('http://localhost:3000/battles/open');
-    const data = await res.json();
+    // Fetch open and active battles
+    const [openRes, activeRes] = await Promise.all([
+      fetch('https://api-dsgit.onrender.com/battles/open'),
+      fetch('https://api-dsgit.onrender.com/battles/wall')
+    ]);
     
-    const arenaContainer = $("arena-list-container");
-    arenaContainer.innerHTML = "";
+    const openData = await openRes.json();
+    const wallData = await activeRes.json();
     
-    if (data.battles && data.battles.length > 0) {
-      data.battles.slice(0, 3).forEach(b => {
-        const el = document.createElement('div');
-        el.style.cssText = "background: rgba(30, 64, 175, 0.2); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;";
-        el.innerHTML = `
-          <div>
-            <div style="font-size: 13px; font-weight: 600; color: #fff;">@${b.challenger}</div>
-            <div style="font-size: 11px; color: #93c5fd;">${(b.type || '').toUpperCase().replace('-', ' ')}</div>
-            <div style="font-size: 11px; color: #a1a1aa; margin-top: 4px;">${b.participants?.length || 1} joined • ${b.maxPlayers - (b.participants?.length || 1)} spots left</div>
-          </div>
-          <button data-id="${b.battleId}" class="btn-join-open" style="background: #22c55e; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-weight: bold; cursor: pointer;">Join</button>
-        `;
-        arenaContainer.appendChild(el);
-      });
-      
-      document.querySelectorAll(".btn-join-open").forEach(btn => {
-        btn.onclick = () => {
-          chrome.tabs.create({ url: `https://dsatracker.app/battle/${btn.getAttribute('data-id')}` });
-        };
-      });
-    } else {
-      arenaContainer.innerHTML = '<p style="color: #a1a1aa; font-size: 13px; text-align: center;">No open battles right now.</p>';
+    // Combine battles
+    let allBattles = [];
+    if (openData.battles) {
+      allBattles = allBattles.concat(openData.battles.map(b => ({ ...b, isOpen: true })));
     }
-
-    // Load Wall Data for stats
-    const wallRes = await fetch('http://localhost:3000/battles/wall');
-    const wallData = await wallRes.json();
+    
+    // Store battles globally for filtering
+    window.arenaBattles = allBattles;
+    window.currentFilter = 'all';
+    
+    renderArenaBattles(allBattles, 'all');
+    
+    // Load Winner Card
     if (wallData.wallData?.recentWinners?.length > 0) {
-      const winner = wallData.wallData.recentWinners[0];
-      $("arena-winner-text").textContent = `${winner.winner} just won a ${winner.type}!`;
-    } else {
-      $("arena-winner-text").textContent = `Battles are ongoing!`;
+      const winners = wallData.wallData.recentWinners.slice(0, 3);
+      const winnerText = winners.map(w => `${w.winner} won ${w.type.split('-').join(' ')}`).join(' • ');
+      $("arena-winner-text").textContent = winnerText || 'Battles are ongoing!';
     }
-
   } catch(err) {
     console.error('Arena load error:', err);
-    $("arena-list-container").innerHTML = '<p style="color: #f87171; font-size: 13px; text-align: center;">Could not load arena.</p>';
+    $("arena-battles-container").innerHTML = '<p style="color: #f87171; font-size: 13px; text-align: center;">Failed to load battles.</p>';
   }
+}
+
+function renderArenaBattles(battles, filter) {
+  const container = $("arena-battles-container");
+  
+  let filtered = battles;
+  if (filter === 'active') {
+    filtered = battles.filter(b => b.status === 'active');
+  } else if (filter === 'pending') {
+    filtered = battles.filter(b => b.status === 'pending_invite');
+  } else if (filter === '7day') {
+    filtered = battles.filter(b => b.type === '7-day-sprint');
+  } else if (filter === '30day') {
+    filtered = battles.filter(b => b.type === '30-day-streak');
+  }
+  
+  container.innerHTML = "";
+  
+  if (!filtered || filtered.length === 0) {
+    container.innerHTML = '<p style="color: #a1a1aa; font-size: 13px; text-align: center; padding: 20px 0;">No battles found</p>';
+    return;
+  }
+  
+  filtered.slice(0, 5).forEach(b => {
+    const daysLeft = b.status === 'active' ? Math.ceil((new Date(b.endDate) - new Date())/86400000) : null;
+    const statusColor = b.status === 'active' ? '#86efac' : b.status === 'pending_invite' ? '#fdba74' : '#a1a1aa';
+    const statusText = b.status === 'active' ? `🔥 ${Math.max(0, daysLeft)}d left` : b.status === 'pending_invite' ? '⏰ Waiting' : 'Done';
+    
+    const typeLabel = (b.type || '').toUpperCase().replace(/-/g, ' ');
+    const particCount = b.participants?.length || 1;
+    const spotsLeft = Math.max(0, (b.maxPlayers || 2) - particCount);
+    
+    const card = document.createElement('div');
+    card.style.cssText = `
+      background: linear-gradient(135deg, rgba(30, 64, 175, 0.08) 0%, rgba(168, 85, 247, 0.06) 100%);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      border-radius: 12px;
+      padding: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    `;
+    
+    card.onmouseover = () => {
+      card.style.background = 'linear-gradient(135deg, rgba(30, 64, 175, 0.15) 0%, rgba(168, 85, 247, 0.12) 100%)';
+      card.style.borderColor = 'rgba(59, 130, 246, 0.4)';
+    };
+    
+    card.onmouseout = () => {
+      card.style.background = 'linear-gradient(135deg, rgba(30, 64, 175, 0.08) 0%, rgba(168, 85, 247, 0.06) 100%)';
+      card.style.borderColor = 'rgba(59, 130, 246, 0.25)';
+    };
+    
+    card.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+        <div>
+          <div style="color: #fff; font-weight: 700; font-size: 13px;">⚔️ ${typeLabel}</div>
+          <div style="color: #a1a1aa; font-size: 11px; margin-top: 2px;">by @${b.challenger || 'Creator'}</div>
+        </div>
+        <span style="background: rgba(59, 130, 246, 0.2); color: #3b82f6; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600;">${typeLabel}</span>
+      </div>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; text-align: center;">
+        <div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.2); padding: 6px; border-radius: 6px;">
+          <div style="color: #86efac; font-weight: 700; font-size: 12px;">${particCount}</div>
+          <div style="color: #6ee7b7; font-size: 9px;">Joined</div>
+        </div>
+        <div style="background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.2); padding: 6px; border-radius: 6px;">
+          <div style="color: #d8b4fe; font-weight: 700; font-size: 12px;">${spotsLeft}</div>
+          <div style="color: #b794f4; font-size: 9px;">Spots</div>
+        </div>
+      </div>
+      
+      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px;">
+        <span style="color: ${statusColor}; font-size: 11px; font-weight: 600;">${statusText}</span>
+        ${b.status === 'pending_invite' && spotsLeft > 0 ? `<button class="join-arena-btn" data-id="${b.battleId}" style="background: linear-gradient(135deg, #22c55e, #16a34a); color: #fff; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600;">Join</button>` : ''}
+      </div>
+    `;
+    
+    container.appendChild(card);
+  });
+  
+  // Bind join buttons
+  document.querySelectorAll('.join-arena-btn').forEach(btn => {
+    btn.onclick = () => {
+      const battleId = btn.getAttribute('data-id');
+      chrome.tabs.create({ url: `https://dsatracker.app/battle/${battleId}` });
+    };
+  });
+}
+
+// Set up filter buttons
+function setupArenaFilters() {
+  ['all', 'active', 'pending', '7day', '30day'].forEach(f => {
+    const btn = $(`filter-${f}`);
+    if (btn) {
+      btn.onclick = () => {
+        // Remove active class from all
+        document.querySelectorAll('.arena-filter').forEach(b => {
+          b.style.background = b === btn ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)';
+          b.style.borderColor = b === btn ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)';
+        });
+        window.currentFilter = f;
+        renderArenaBattles(window.arenaBattles || [], f);
+      };
+    }
+  });
 }
 
 $("btn-explore-arena").onclick = () => {
@@ -539,10 +635,18 @@ function renderBattlesUI(battles, badges) {
   const c = $("active-battles-container");
   c.innerHTML = "";
   
-  if (!battles || battles.length === 0) {
+  // Deduplicate battles by id
+  const seenIds = new Set();
+  const uniqueBattles = battles.filter(b => {
+    if (seenIds.has(b.id)) return false;
+    seenIds.add(b.id);
+    return true;
+  });
+  
+  if (!uniqueBattles || uniqueBattles.length === 0) {
     c.innerHTML = `<p style="color: #a1a1aa; font-size: 13px; text-align: center; margin: 0;">No active battles. Start one below!</p>`;
   } else {
-    battles.forEach(b => {
+    uniqueBattles.forEach(b => {
       const el = document.createElement("div");
       el.style.background = "rgba(0,0,0,0.3)";
       el.style.border = "1px solid rgba(255,255,255,0.1)";
@@ -557,7 +661,7 @@ function renderBattlesUI(battles, badges) {
          statusHtml = `<span style="color:#fdba74; font-size:12px;">⏰ Waiting for opponent...</span>`;
       } else if (b.status === "active") {
          const daysLeft = Math.ceil((new Date(b.endDate) - new Date())/86400000);
-         statusHtml = `<span style="color:#86efac; font-size:12px;">🔥 Active • ${daysLeft} days left</span>`;
+         statusHtml = `<span style="color:#86efac; font-size:12px;">🔥 Active • ${Math.max(0, daysLeft)} days left</span>`;
       } else if (b.status === "won") {
          statusHtml = `<span style="color:#fbbf24; font-size:12px;">🏆 You Won!</span>`;
       } else if (b.status === "lost") {
@@ -567,13 +671,22 @@ function renderBattlesUI(battles, badges) {
       }
 
       const cleanType = (b.type || "").split("-").join(" ").toUpperCase();
+      
+      // Find opponent data from leaderboard
+      let opponentScore = 0;
+      if (b.leaderboard && b.leaderboard.length > 1) {
+        // Find opponent (user that is not current user)
+        const opponent = b.leaderboard.find(p => p.username !== b.opponent);
+        opponentScore = opponent?.score || 0;
+      }
+      
       el.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <span style="color:#fff; font-weight:600; font-size:13px;">vs @${b.opponent}</span>
           <span style="color:#a1a1aa; font-size:11px;">${cleanType}</span>
         </div>
         <div style="margin-top:8px;">${statusHtml}</div>
-        ${b.status === "active" ? `
+        ${b.status === "active" || b.status === "won" || b.status === "lost" ? `
         <div style="margin-top: 12px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 6px;">
           <div style="font-size: 11px; color: #a1a1aa; margin-bottom: 6px; text-transform: uppercase;">Score Breakdown</div>
           <div style="display: flex; gap: 8px; margin-bottom: 8px;">
@@ -596,7 +709,7 @@ function renderBattlesUI(battles, badges) {
             <span>CN: ${b.platforms?.codingninjas || 0}</span>
           </div>
           <div style="margin-top: 8px; font-weight: bold; text-align: center; color: #e4e4e7; font-size: 12px; background: rgba(0,0,0,0.4); padding: 4px; border-radius: 4px;">
-            Your Score: ${b.score || 0} <span style="color: #a1a1aa; font-weight: normal; margin: 0 4px;">vs</span> Opponent: ${b.opponentScore || 0}
+            Your Score: ${b.score || 0} <span style="color: #a1a1aa; font-weight: normal; margin: 0 4px;">vs</span> Opponent: ${opponentScore}
           </div>
         </div>
         ` : ''}
@@ -609,7 +722,7 @@ function renderBattlesUI(battles, badges) {
   document.querySelectorAll(".btn-accept-battle").forEach(btn => {
     btn.onclick = async () => {
       const id = btn.getAttribute("data-id");
-      const b = battles.find(x => x.id === id);
+      const b = uniqueBattles.find(x => x.id === id);
       btn.textContent = "Accepting...";
       btn.disabled = true;
       try {
@@ -702,7 +815,7 @@ $("btn-create-open").onclick = async () => {
 
     if (!challengerUsername) throw new Error("Not authenticated");
 
-    const res = await fetch('http://localhost:3000/battles/create', {
+    const res = await fetch('https://api-dsgit.onrender.com/battles/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

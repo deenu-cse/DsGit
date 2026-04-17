@@ -83,6 +83,7 @@ async function handleWebSocketMessage(data) {
         duration: battle.duration,
         opponent: battle.challenger,
         status: "received_invite",
+        createdAt: new Date().toISOString()
       });
       modified = true;
       chrome.notifications.create({
@@ -118,6 +119,53 @@ async function handleWebSocketMessage(data) {
       b.status = 'won';
       modified = true;
       chrome.notifications.create({ type: "basic", iconUrl: "/assets/icons/icon-128.png", title: "🏆 Battle Won!", message: `${loser} broke their streak! You win the battle.` });
+    }
+  }
+  else if (type === 'BATTLE_SYNC') {
+    const { battle } = payload;
+    // Use battleId for consistency - sync uses either id or battleId
+    const battleId = battle.id || battle.battleId;
+    const existingIndex = battles.findIndex(b => b.id === battleId);
+    
+    if (existingIndex !== -1) {
+      // Update existing - merge data carefully to preserve participant details
+      battles[existingIndex] = {
+        ...battles[existingIndex],
+        id: battleId,
+        type: battle.type || battles[existingIndex].type,
+        duration: battle.duration || battles[existingIndex].duration,
+        opponent: battle.opponent || battles[existingIndex].opponent,
+        status: battle.status || battles[existingIndex].status,
+        endDate: battle.endDate || battles[existingIndex].endDate,
+        participants: battle.participants || battles[existingIndex].participants,
+        score: battle.score || battles[existingIndex].score,
+        opponentScore: battle.opponentScore || battles[existingIndex].opponentScore,
+        hardSolved: battle.hardSolved || battles[existingIndex].hardSolved,
+        mediumSolved: battle.mediumSolved || battles[existingIndex].mediumSolved,
+        easySolved: battle.easySolved || battles[existingIndex].easySolved,
+        platforms: battle.platforms || battles[existingIndex].platforms
+      };
+      modified = true;
+    } else {
+      // Add new - with full data
+      battles.push({
+        id: battleId,
+        type: battle.type || 'standard',
+        duration: battle.duration || 7,
+        opponent: battle.opponent || 'Opponent',
+        status: battle.status || 'active',
+        endDate: battle.endDate || null,
+        participants: battle.participants || [],
+        score: battle.score || 0,
+        opponentScore: battle.opponentScore || 0,
+        hardSolved: battle.hardSolved || 0,
+        mediumSolved: battle.mediumSolved || 0,
+        easySolved: battle.easySolved || 0,
+        platforms: battle.platforms || { leetcode: 0, gfg: 0, codingninjas: 0 },
+        createdAt: new Date().toISOString()
+      });
+      modified = true;
+      console.log("[DSA Tracker] 🔄 Synced new battle from Web:", battleId);
     }
   }
 
@@ -416,9 +464,36 @@ async function pushSolution(payload) {
   }
   nextLongest = Math.max(nextLongest, nextCurrent);
 
-  const battles = (await getBattles()) || [];
+  let battles = (await getBattles()) || [];
   const badges = (await getBadges()) || [];
   const signupDate = (await getSignupDate()) || today;
+
+  // CRITICAL FIX: Sync battles from backend to ensure we have the latest
+  try {
+    const serverBattles = await fetch(
+      `https://api-dsgit.onrender.com/battles/user/${profile.login}`
+    ).then(r => r.json());
+    if (serverBattles.success && serverBattles.battles) {
+      // Merge server battles with local cache
+      const battleMap = new Map(battles.map(b => [b.id, b]));
+      serverBattles.battles.forEach(b => {
+        battleMap.set(b.id, {
+          id: b.id,
+          type: b.type || 'standard',
+          duration: b.duration || 7,
+          opponent: b.opponent || 'Opponent',
+          status: b.status || 'active',
+          endDate: b.endDate || null
+        });
+      });
+      battles = Array.from(battleMap.values());
+      await saveBattles(battles);
+      console.log("[DSA Tracker] Synced battles from server:", battles.length);
+    }
+  } catch (err) {
+    console.warn("[DSA Tracker] Failed to sync battles from server:", err);
+    // Continue with local cache
+  }
 
   const statsObj = {
     username: profile.login,
@@ -453,20 +528,29 @@ async function pushSolution(payload) {
 
   // Broadcast activity to active battles via WebSocket
   if (ws && wsIsConnected) {
-    const activeBattles = battles.filter(b => b.status === "active" || b.status === "active"); // Ensure we only send to active battles
-    for (const b of activeBattles) {
-      const points = difficulty === 'Hard' ? 3 : difficulty === 'Medium' ? 2 : 1;
-      ws.send(JSON.stringify({
-        type: 'BATTLE_ACTIVITY',
-        payload: {
-          battleId: b.id,
-          questionName,
-          platform,
-          difficulty,
-          points
-        }
-      }));
+    const activeBattles = battles.filter(b => b.status === "active" || b.status === "pending_invite"); // Ensure we only send to active or open battles
+    if (activeBattles.length > 0) {
+      console.log("[DSA Tracker] Broadcasting to", activeBattles.length, "battles");
+      for (const b of activeBattles) {
+        const points = difficulty === 'Hard' ? 3 : difficulty === 'Medium' ? 2 : 1;
+        ws.send(JSON.stringify({
+          type: 'BATTLE_ACTIVITY',
+          payload: {
+            battleId: b.id,
+            username: profile.login,
+            questionName,
+            platform,
+            difficulty,
+            points
+          }
+        }));
+        console.log("[DSA Tracker] Sent BATTLE_ACTIVITY for", b.id, ":", questionName);
+      }
+    } else {
+      console.warn("[DSA Tracker] No active battles to broadcast activity to");
     }
+  } else {
+    console.warn("[DSA Tracker] WebSocket not connected. Can't broadcast activity. ws:", !!ws, "connected:", wsIsConnected);
   }
 
   return {
@@ -509,6 +593,21 @@ async function getSnapshotsHandler() {
 
 // ─── Popup data aggregator ────────────────────────────────────────────────────
 
+async function fetchFullUserBattles(username) {
+  try {
+    const res = await fetch(`https://api-dsgit.onrender.com/battles/user/${username}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.battles || [];
+  } catch (e) {
+    console.error("[DSA Tracker] Failed to fetch full battles from API:", e);
+    return [];
+  }
+}
+
 async function getPopupData() {
   const profile = await getUserProfile();
   const repoName = await getRepoName();
@@ -516,8 +615,27 @@ async function getPopupData() {
   const dayNumber = await getCurrentDayNumber();
   const signupDate = await getSignupDate();
   const pushHistory = (await getPushHistory()).slice(0, 10);
-  const battles = await getBattles() || [];
   const badges = await getBadges() || [];
+  
+  // Fetch fresh battle data from backend API + local storage
+  let battles = [];
+  try {
+    if (profile?.login) {
+      const freshBattles = await fetchFullUserBattles(profile.login);
+      if (freshBattles && freshBattles.length > 0) {
+        battles = freshBattles;
+        // Also save to local storage for offline fallback
+        await saveBattles(freshBattles);
+      }
+    }
+  } catch (e) {
+    console.error("[DSA Tracker] Failed to fetch fresh battles:", e);
+  }
+  
+  // Fallback to local storage if API fetch failed
+  if (!battles || battles.length === 0) {
+    battles = (await getBattles()) || [];
+  }
 
   return {
     profile,

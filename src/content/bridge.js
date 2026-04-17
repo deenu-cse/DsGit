@@ -27,7 +27,7 @@
       if (e.data.a === "get") {
         try {
           // 1. Try active editor
-          const eds = window.monaco?.editor?.getEditors?.() || [];
+          let eds = window.monaco?.editor?.getEditors?.() || [];
           if (eds.length > 0) {
             const v = eds[0].getValue?.();
             if (typeof v === "string" && v.trim()) r = v;
@@ -57,6 +57,11 @@
               if (comp && comp.value) r = comp.value;
             }
           }
+
+          // 4. If still no code and Monaco not ready, retry later
+          if (!r && !window.monaco && !window.ng) {
+            er = "Editor not initialized yet";
+          }
         } catch (err) {
           er = "get_code error: " + err.message;
         }
@@ -64,7 +69,7 @@
         if (r) {
           console.log("[DSA Bridge] getCode success:", r.length, "chars");
         } else {
-          console.warn("[DSA Bridge] getCode failed. monaco =", typeof window.monaco, "ng =", typeof window.ng);
+          console.warn("[DSA Bridge] getCode failed. monaco =", typeof window.monaco, "ng =", typeof window.ng, "editors =", window.monaco?.editor?.getEditors?.()?.length || 0);
           er = er || "Monaco API returned empty or is not accessible.";
         }
       }

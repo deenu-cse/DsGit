@@ -35,26 +35,45 @@
   function bridgeCall(action, code) {
     return new Promise(resolve => {
       const id = "_dsa_" + Date.now() + Math.random().toString(36).slice(2, 6);
-      const tid = setTimeout(() => {
-        window.removeEventListener("message", handler);
-        console.warn("[DSA Tracker] bridgeCall timeout for action:", action);
-        resolve(null);
-      }, 4000); // 4s — enough for Monaco to initialize on slow pages
+      let retries = 0;
+      const maxRetries = 3;
+      
+      function attempt() {
+        const tid = setTimeout(() => {
+          window.removeEventListener("message", handler);
+          if (retries < maxRetries && action === "get") {
+            console.warn("[DSA Tracker] bridgeCall timeout for action:", action, "- retrying", retries + 1);
+            retries++;
+            setTimeout(attempt, 1000);
+          } else {
+            console.warn("[DSA Tracker] bridgeCall timeout for action:", action);
+            resolve(null);
+          }
+        }, 4000); // 4s — enough for Monaco to initialize on slow pages
 
-      function handler(e) {
-        if (!e.data || e.data._t !== "dsa_pg" || e.data.id !== id) return;
-        clearTimeout(tid);
-        window.removeEventListener("message", handler);
-        if (e.data.er) {
-          console.error("[DSA Tracker] Bridge error:", e.data.er);
-          resolve(null);
-        } else {
-          resolve(e.data.r ?? null);
+        function handler(e) {
+          if (!e.data || e.data._t !== "dsa_pg" || e.data.id !== id) return;
+          clearTimeout(tid);
+          window.removeEventListener("message", handler);
+          if (e.data.er) {
+            console.error("[DSA Tracker] Bridge error:", e.data.er);
+            if (retries < maxRetries && action === "get") {
+              console.warn("[DSA Tracker] Retrying bridge call:", retries + 1);
+              retries++;
+              setTimeout(attempt, 500);
+            } else {
+              resolve(null);
+            }
+          } else {
+            resolve(e.data.r ?? null);
+          }
         }
-      }
 
-      window.addEventListener("message", handler);
-      window.postMessage({ _t: "dsa_cs", id, a: action, c: code ?? null }, "*");
+        window.addEventListener("message", handler);
+        window.postMessage({ _t: "dsa_cs", id, a: action, c: code ?? null }, "*");
+      }
+      
+      attempt();
     });
   }
 
