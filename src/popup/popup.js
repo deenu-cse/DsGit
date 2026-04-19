@@ -377,7 +377,7 @@ function renderArenaBattles(battles, filter) {
   document.querySelectorAll('.join-arena-btn').forEach(btn => {
     btn.onclick = () => {
       const battleId = btn.getAttribute('data-id');
-      chrome.tabs.create({ url: `https://dsatracker.app/battle/${battleId}` });
+      chrome.tabs.create({ url: `https://dsgit.vercel.app/battle/${battleId}` });
     };
   });
 }
@@ -401,7 +401,7 @@ function setupArenaFilters() {
 }
 
 $("btn-explore-arena").onclick = () => {
-  chrome.tabs.create({ url: 'https://dsatracker.app/arena' });
+  chrome.tabs.create({ url: 'https://dsgit.vercel.app/arena' });
 };
 
 
@@ -828,7 +828,7 @@ $("btn-create-open").onclick = async () => {
 
     btn.textContent = "Created! 🌐";
     setTimeout(() => {
-      chrome.tabs.create({ url: `https://dsatracker.app/battle/${data.battle.battleId}` });
+      chrome.tabs.create({ url: `https://dsgit.vercel.app/battle/${data.battle.battleId}` });
     }, 1000);
 
   } catch (e) {

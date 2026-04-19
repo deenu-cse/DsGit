@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "DSA Tracker — GitHub Consistency Tool",
-  "short_name": "DSA Tracker",
+  "name": "DsGit — GitHub Consistency Tool",
+  "short_name": "DsGit",
   "version": "1.0.2",
   "description": "Auto-push your DSA solutions to GitHub. Track streaks, build consistency — day by day.",
 
@@ -37,7 +37,7 @@
       "48":  "assets/icons/icon-48.png",
       "128": "assets/icons/icon-128.png"
     },
-    "default_title": "DSA Tracker"
+    "default_title": "DsGit"
   },
 
   "icons": {

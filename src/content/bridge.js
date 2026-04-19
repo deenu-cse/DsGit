@@ -1,4 +1,4 @@
-// ─── DSA Tracker — Monaco Bridge ─────────────────────────────────────────────
+// ─── DsGit — Monaco Bridge ─────────────────────────────────────────────────────
 // This file runs in the PAGE's MAIN JavaScript world (declared in manifest.json
 // with "world": "MAIN"). This bypasses naukri.com's strict CSP that blocks all
 // inline script injection (s.textContent = ...).

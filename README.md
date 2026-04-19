@@ -1,4 +1,4 @@
-# 🔥 DSA Tracker — Chrome Extension
+# 🔥 DsGit — Chrome Extension
 
 > Auto-push DSA solutions to GitHub. Track streaks, build consistency — day by day.
 
@@ -58,7 +58,7 @@ dsa-tracker-extension/
 1. Go to [GitHub Settings → Developer Settings → OAuth Apps](https://github.com/settings/developers)
 2. Click **"New OAuth App"**
 3. Fill in:
-   - **Application name**: DSA Tracker
+   - **Application name**: DsGit
    - **Homepage URL**: `https://github.com`
    - **Authorization callback URL**: `https://<YOUR_EXTENSION_ID>.chromiumapp.org/`
      > You get the extension ID after loading it in Chrome — see Step 3.

@@ -41,7 +41,7 @@ function connectWebSocket() {
     ws = new WebSocket(WS_URL);
 
     ws.onopen = () => {
-      console.log("[DSA Tracker] WebSocket Connected");
+      console.log("[DsGit] WebSocket Connected");
       wsIsConnected = true;
       wsReconnectDelay = 1000; // Reset backoff
     };
@@ -56,14 +56,14 @@ function connectWebSocket() {
     };
 
     ws.onclose = () => {
-      console.log("[DSA Tracker] WebSocket Disconnected. Reconnecting in " + wsReconnectDelay + "ms...");
+      console.log("[DsGit] WebSocket Disconnected. Reconnecting in " + wsReconnectDelay + "ms...");
       wsIsConnected = false;
       setTimeout(connectWebSocket, wsReconnectDelay);
       wsReconnectDelay = Math.min(wsReconnectDelay * 2, wsMaxDelay);
     };
 
     ws.onerror = (err) => {
-      console.error("[DSA Tracker] WebSocket Error:", err);
+      console.error("[DsGit] WebSocket Error:", err);
       ws.close();
     };
   });
@@ -165,7 +165,7 @@ async function handleWebSocketMessage(data) {
         createdAt: new Date().toISOString()
       });
       modified = true;
-      console.log("[DSA Tracker] 🔄 Synced new battle from Web:", battleId);
+      console.log("[DsGit] 🔄 Synced new battle from Web:", battleId);
     }
   }
 
@@ -178,7 +178,7 @@ connectWebSocket();
 // ─── Install handler ──────────────────────────────────────────────────────────
 
 chrome.runtime.onInstalled.addListener(async ({ reason }) => {
-  console.log("[DSA Tracker] onInstalled:", reason);
+  console.log("[DsGit] onInstalled:", reason);
   await scheduleReminder();
   await setupBattleAlarms();
 
@@ -197,9 +197,9 @@ chrome.runtime.onInstalled.addListener(async ({ reason }) => {
           .replace(/\r/g, "\n"),
       }));
     await saveSnapshots(cleaned);
-    console.log("[DSA Tracker] Snapshot sanitization done:", cleaned.length, "snaps");
+    console.log("[DsGit] Snapshot sanitization done:", cleaned.length, "snaps");
   } catch (e) {
-    console.warn("[DSA Tracker] Snapshot sanitization failed:", e);
+    console.warn("[DsGit] Snapshot sanitization failed:", e);
   }
 });
 
@@ -221,7 +221,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     chrome.notifications.create("daily-reminder", {
       type: "basic",
       iconUrl: "/assets/icons/icon-128.png",
-      title: `🔥 DSA Tracker — Day ${dayNumber}`,
+      title: `🔥 DsGit — Day ${dayNumber}`,
       message: "Aaj ka question abhi tak push nahi hua! Streak mat torna 💪",
       buttons: [{ title: "Open LeetCode" }],
     });

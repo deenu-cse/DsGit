@@ -1,292 +1,343 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DSA Tracker</title>
+  <title>DsGit</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="popup.css" />
 </head>
+
 <body>
 
-<!-- ── Loading Screen ──────────────────────────────────────────────────────── -->
-<div id="screen-loading" class="screen">
-  <div class="loading-wrap">
-    <div class="loading-logo">
-      <div class="logo-ring"></div>
-      <span class="logo-emoji">🔥</span>
+  <!-- ── Loading Screen ──────────────────────────────────────────────────────── -->
+  <div id="screen-loading" class="screen">
+    <div class="loading-wrap">
+      <div class="loading-logo">
+        <div class="logo-ring"></div>
+        <span class="logo-emoji">🔥</span>
+      </div>
+      <p class="loading-text">Loading DsGit</p>
+      <div class="loading-dots"><span></span><span></span><span></span></div>
     </div>
-    <p class="loading-text">Loading DSA Tracker</p>
-    <div class="loading-dots"><span></span><span></span><span></span></div>
   </div>
-</div>
 
-<!-- ── Login Screen ───────────────────────────────────────────────────────── -->
-<div id="screen-login" class="screen hidden">
-  <div class="login-bg-glow"></div>
-  <div class="login-content">
-    <div class="login-logo-wrap">
-      <div class="login-logo">🔥</div>
-      <div class="login-logo-glow"></div>
-    </div>
-    <h1 class="login-title">DSA Tracker</h1>
-    <p class="login-subtitle">Push daily. Build consistency.<br>Watch your GitHub turn green 🌱</p>
-
-    <div class="login-features">
-      <div class="login-feature">
-        <span class="lf-icon">🚀</span>
-        <span>Auto-push solutions to GitHub</span>
+  <!-- ── Login Screen ───────────────────────────────────────────────────────── -->
+  <div id="screen-login" class="screen hidden">
+    <div class="login-bg-glow"></div>
+    <div class="login-content">
+      <div class="login-logo-wrap">
+        <div class="login-logo">🔥</div>
+        <div class="login-logo-glow"></div>
       </div>
-      <div class="login-feature">
-        <span class="lf-icon">🔥</span>
-        <span>Track daily streaks</span>
+      <h1 class="login-title">DsGit</h1>
+      <p class="login-subtitle">Push daily. Build consistency.<br>Watch your GitHub turn green 🌱</p>
+
+      <div class="login-features">
+        <div class="login-feature">
+          <span class="lf-icon">🚀</span>
+          <span>Auto-push solutions to GitHub</span>
+        </div>
+        <div class="login-feature">
+          <span class="lf-icon">🔥</span>
+          <span>Track daily streaks</span>
+        </div>
+        <div class="login-feature">
+          <span class="lf-icon">⏪</span>
+          <span>Code Time Machine (Ctrl+Shift+Z)</span>
+        </div>
       </div>
-      <div class="login-feature">
-        <span class="lf-icon">⏪</span>
-        <span>Code Time Machine (Ctrl+Shift+Z)</span>
-      </div>
-    </div>
 
-    <button id="btn-login" class="btn-github">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-        <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
-      </svg>
-      <span>Continue with GitHub</span>
-    </button>
-    <p class="login-privacy">Only <code>repo</code> scope — we never see your password</p>
-  </div>
-</div>
-
-<!-- ── Setup Screen ────────────────────────────────────────────────────────── -->
-<div id="screen-setup" class="screen hidden">
-  <div class="setup-wrap">
-    <div class="setup-avatar-wrap">
-      <img id="setup-avatar" src="" alt="avatar" class="setup-avatar" />
-      <div class="setup-avatar-ring"></div>
-    </div>
-    <h2 class="setup-title">Welcome, <span id="setup-username" class="setup-name"></span>!</h2>
-    <p class="setup-sub">One last thing — name your DSA repo.</p>
-
-    <div class="field-group">
-      <label class="field-label" for="input-repo">
-        <span class="field-label-icon">📁</span> GitHub Repo Name
-      </label>
-      <div class="field-input-wrap">
-        <span class="field-prefix">github.com/you/</span>
-        <input id="input-repo" class="field-input" type="text"
-               placeholder="dsa-practice" value="dsa-practice" autocomplete="off" />
-      </div>
-      <p class="field-hint">✨ We'll create it automatically if it doesn't exist.</p>
-    </div>
-
-    <button id="btn-save-setup" class="btn-primary">
-      <span id="setup-btn-text">Start Tracking 🚀</span>
-    </button>
-  </div>
-</div>
-
-<!-- ── Main Dashboard ─────────────────────────────────────────────────────── -->
-<div id="screen-main" class="screen hidden">
-
-  <!-- Header -->
-  <div class="dash-header">
-    <div class="dash-user">
-      <div class="avatar-wrap">
-        <img id="dash-avatar" src="" alt="" class="dash-avatar" />
-        <div class="avatar-online"></div>
-      </div>
-      <div class="dash-user-info">
-        <span id="dash-username" class="dash-username"></span>
-        <span class="dash-subtitle">DSA Tracker</span>
-      </div>
-    </div>
-    <div class="dash-actions-top">
-      <button id="btn-settings" class="icon-btn" title="Settings">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="3"></circle>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+      <button id="btn-login" class="btn-github">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path
+            d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
         </svg>
+        <span>Continue with GitHub</span>
       </button>
+      <p class="login-privacy">Only <code>repo</code> scope — we never see your password</p>
     </div>
   </div>
 
-  <div class="dash-tabs" style="display: flex; justify-content: center; gap: 24px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">
-    <button id="tab-dash" class="tab-btn" style="background: none; border: none; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; opacity: 1; border-bottom: 2px solid #22c55e;">Dashboard</button>
-    <button id="tab-battles" class="tab-btn" style="background: none; border: none; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; opacity: 0.5;">Battles ⚔️</button>
-    <button id="tab-arena" class="tab-btn" style="background: none; border: none; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; opacity: 0.5;">Arena 🌐</button>
-  </div>
-
-  <div id="view-dash" class="view-pane active" style="display: block;">
-
-  <!-- Streak Hero Card -->
-  <div class="streak-card">
-    <div class="streak-card-bg"></div>
-    <div class="streak-card-content">
-      <div class="streak-top">
-        <div class="day-badge">
-          <span class="day-badge-dot"></span>
-          Day <span id="day-number">—</span>
-        </div>
-        <div id="today-badge" class="today-solved-badge hidden">✅ Solved today</div>
+  <!-- ── Setup Screen ────────────────────────────────────────────────────────── -->
+  <div id="screen-setup" class="screen hidden">
+    <div class="setup-wrap">
+      <div class="setup-avatar-wrap">
+        <img id="setup-avatar" src="" alt="avatar" class="setup-avatar" />
+        <div class="setup-avatar-ring"></div>
       </div>
-      <div class="streak-main">
-        <div class="streak-fire-wrap">
-          <div class="streak-fire-bg"></div>
-          <span class="streak-fire">🔥</span>
-        </div>
-        <div class="streak-info">
-          <div class="streak-num-wrap">
-            <span id="streak-count" class="streak-count">0</span>
-            <span class="streak-unit">day streak</span>
-          </div>
-          <div id="streak-best" class="streak-best-label"></div>
-        </div>
-      </div>
-    </div>
-  </div>
+      <h2 class="setup-title">Welcome, <span id="setup-username" class="setup-name"></span>!</h2>
+      <p class="setup-sub">One last thing — name your DSA repo.</p>
 
-  <!-- Break / Milestone Banner -->
-  <div id="break-banner" class="alert-banner alert-break hidden">
-    <span class="alert-icon">💔</span>
-    <div class="alert-body">
-      <div class="alert-title">Streak broken</div>
-      <div id="break-message" class="alert-msg"></div>
-    </div>
-  </div>
-
-  <div id="milestone-banner" class="alert-banner alert-milestone hidden">
-    <span class="alert-icon">🏆</span>
-    <div class="alert-body">
-      <div class="alert-title">Milestone unlocked!</div>
-      <div id="milestone-text" class="alert-msg"></div>
-    </div>
-  </div>
-
-  <!-- Stats Row -->
-  <div class="stats-grid">
-    <div class="stat-card">
-      <div id="stat-total" class="stat-val">0</div>
-      <div class="stat-lbl">Total Solved</div>
-    </div>
-    <div class="stat-card stat-card-mid">
-      <div id="stat-today" class="stat-val">0</div>
-      <div class="stat-lbl">Today</div>
-    </div>
-    <div class="stat-card">
-      <div id="stat-breaks" class="stat-val">0</div>
-      <div class="stat-lbl">Breaks</div>
-    </div>
-  </div>
-
-  <!-- Heatmap -->
-  <div class="section-header">
-    <span class="section-label">Activity — Last 30 days</span>
-    <span id="heatmap-legend" class="heatmap-legend">less → more</span>
-  </div>
-  <div id="heatmap" class="heatmap"></div>
-
-  <!-- Recent Pushes -->
-  <div class="section-header" style="margin-top: 16px;">
-    <span class="section-label">Recent Pushes</span>
-    <a id="repo-link" href="#" target="_blank" class="section-link">View repo →</a>
-  </div>
-  <div id="recent-list" class="recent-list"></div>
-
-  <!-- Bottom Actions -->
-  <div class="bottom-actions">
-    <button id="btn-share" class="btn-action btn-share">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
-      Share Streak
-    </button>
-    <button id="btn-logout" class="btn-action btn-logout">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-      Logout
-    </button>
-  </div>
-
-  </div> <!-- /view-dash -->
-
-  <!-- ── Battles View ──────────────────────────────────────────────────────── -->
-  <div id="view-battles" class="view-pane" style="display: none;">
-    <div style="background: rgba(30, 27, 75, 0.4); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 12px; padding: 16px; margin-bottom: 16px; backdrop-filter: blur(10px);">
-      <h3 style="margin: 0 0 12px 0; color: #d8b4fe; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">⚔️ Active Battle</h3>
-      <div id="active-battles-container">
-        <p style="color: #a1a1aa; font-size: 13px; text-align: center; margin: 0;">No active battles. Start one below!</p>
-      </div>
-    </div>
-
-    <div style="background: rgba(20, 83, 45, 0.3); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 12px; padding: 16px; margin-bottom: 16px; backdrop-filter: blur(10px);">
-      <h3 style="margin: 0 0 12px 0; color: #86efac; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">🎯 Challenge a Friend</h3>
-      
-      <input id="battle-target" type="text" placeholder="Opponent's GitHub Username" style="width: 100%; box-sizing: border-box; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px 12px; color: #fff; margin-bottom: 12px; font-family: 'Inter', sans-serif;" />
-      
-      <select id="battle-type" style="width: 100%; box-sizing: border-box; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px 12px; color: #fff; margin-bottom: 16px; font-family: 'Inter', sans-serif;">
-        <option value="30-day-streak">⚔️ 30-Day Streak Duel</option>
-        <option value="7-day-sprint">⚡ 7-Day Sprint</option>
-        <option value="topic-master">🎯 Topic Master</option>
-        <option value="consistency-king">🌙 90-Day Consistency King</option>
-      </select>
-
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-        <label style="color: #fff; font-size: 13px; font-weight: 500;">
-          <input type="checkbox" id="battle-is-public" style="margin-right: 6px;"> Make it public
+      <div class="field-group">
+        <label class="field-label" for="input-repo">
+          <span class="field-label-icon">📁</span> GitHub Repo Name
         </label>
-        <select id="battle-max-players" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: #fff; display: none;">
-          <option value="2">2 Players</option>
-          <option value="5">5 Players</option>
-          <option value="10">10 Players</option>
-          <option value="20">20 Players</option>
+        <div class="field-input-wrap">
+          <span class="field-prefix">github.com/you/</span>
+          <input id="input-repo" class="field-input" type="text" placeholder="dsa-practice" value="dsa-practice"
+            autocomplete="off" />
+        </div>
+        <p class="field-hint">✨ We'll create it automatically if it doesn't exist.</p>
+      </div>
+
+      <button id="btn-save-setup" class="btn-primary">
+        <span id="setup-btn-text">Start Tracking 🚀</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Main Dashboard ─────────────────────────────────────────────────────── -->
+  <div id="screen-main" class="screen hidden">
+
+    <!-- Header -->
+    <div class="dash-header">
+      <div class="dash-user">
+        <div class="avatar-wrap">
+          <img id="dash-avatar" src="" alt="" class="dash-avatar" />
+          <div class="avatar-online"></div>
+        </div>
+        <div class="dash-user-info">
+          <span id="dash-username" class="dash-username"></span>
+          <span class="dash-subtitle">DsGit</span>
+        </div>
+      </div>
+      <div class="dash-actions-top">
+        <button id="btn-settings" class="icon-btn" title="Settings">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path
+              d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z">
+            </path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="dash-tabs"
+      style="display: flex; justify-content: center; gap: 24px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">
+      <button id="tab-dash" class="tab-btn"
+        style="background: none; border: none; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; opacity: 1; border-bottom: 2px solid #22c55e;">Dashboard</button>
+      <button id="tab-battles" class="tab-btn"
+        style="background: none; border: none; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; opacity: 0.5;">Battles
+        ⚔️</button>
+      <button id="tab-arena" class="tab-btn"
+        style="background: none; border: none; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; opacity: 0.5;">Arena
+        🌐</button>
+    </div>
+
+    <div id="view-dash" class="view-pane active" style="display: block;">
+
+      <!-- Streak Hero Card -->
+      <div class="streak-card">
+        <div class="streak-card-bg"></div>
+        <div class="streak-card-content">
+          <div class="streak-top">
+            <div class="day-badge">
+              <span class="day-badge-dot"></span>
+              Day <span id="day-number">—</span>
+            </div>
+            <div id="today-badge" class="today-solved-badge hidden">✅ Solved today</div>
+          </div>
+          <div class="streak-main">
+            <div class="streak-fire-wrap">
+              <div class="streak-fire-bg"></div>
+              <span class="streak-fire">🔥</span>
+            </div>
+            <div class="streak-info">
+              <div class="streak-num-wrap">
+                <span id="streak-count" class="streak-count">0</span>
+                <span class="streak-unit">day streak</span>
+              </div>
+              <div id="streak-best" class="streak-best-label"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Break / Milestone Banner -->
+      <div id="break-banner" class="alert-banner alert-break hidden">
+        <span class="alert-icon">💔</span>
+        <div class="alert-body">
+          <div class="alert-title">Streak broken</div>
+          <div id="break-message" class="alert-msg"></div>
+        </div>
+      </div>
+
+      <div id="milestone-banner" class="alert-banner alert-milestone hidden">
+        <span class="alert-icon">🏆</span>
+        <div class="alert-body">
+          <div class="alert-title">Milestone unlocked!</div>
+          <div id="milestone-text" class="alert-msg"></div>
+        </div>
+      </div>
+
+      <!-- Stats Row -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div id="stat-total" class="stat-val">0</div>
+          <div class="stat-lbl">Total Solved</div>
+        </div>
+        <div class="stat-card stat-card-mid">
+          <div id="stat-today" class="stat-val">0</div>
+          <div class="stat-lbl">Today</div>
+        </div>
+        <div class="stat-card">
+          <div id="stat-breaks" class="stat-val">0</div>
+          <div class="stat-lbl">Breaks</div>
+        </div>
+      </div>
+
+      <!-- Heatmap -->
+      <div class="section-header">
+        <span class="section-label">Activity — Last 30 days</span>
+        <span id="heatmap-legend" class="heatmap-legend">less → more</span>
+      </div>
+      <div id="heatmap" class="heatmap"></div>
+
+      <!-- Recent Pushes -->
+      <div class="section-header" style="margin-top: 16px;">
+        <span class="section-label">Recent Pushes</span>
+        <a id="repo-link" href="#" target="_blank" class="section-link">View repo →</a>
+      </div>
+      <div id="recent-list" class="recent-list"></div>
+
+      <!-- Bottom Actions -->
+      <div class="bottom-actions">
+        <button id="btn-share" class="btn-action btn-share">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18" cy="5" r="3"></circle>
+            <circle cx="6" cy="12" r="3"></circle>
+            <circle cx="18" cy="19" r="3"></circle>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+          </svg>
+          Share Streak
+        </button>
+        <button id="btn-logout" class="btn-action btn-logout">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          Logout
+        </button>
+      </div>
+
+    </div> <!-- /view-dash -->
+
+    <!-- ── Battles View ──────────────────────────────────────────────────────── -->
+    <div id="view-battles" class="view-pane active" style="display: none; padding: 12px;">
+      <div
+        style="background: rgba(30, 27, 75, 0.4); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 12px; padding: 16px; margin-bottom: 16px; backdrop-filter: blur(10px);">
+        <h3
+          style="margin: 0 0 12px 0; color: #d8b4fe; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">
+          ⚔️ Active Battle</h3>
+        <div id="active-battles-container">
+          <p style="color: #a1a1aa; font-size: 13px; text-align: center; margin: 0;">No active battles. Start one below!
+          </p>
+        </div>
+      </div>
+
+      <div
+        style="background: rgba(20, 83, 45, 0.3); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 12px; padding: 16px; margin-bottom: 16px; backdrop-filter: blur(10px);">
+        <h3
+          style="margin: 0 0 12px 0; color: #86efac; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">
+          🎯 Challenge a Friend</h3>
+
+        <input id="battle-target" type="text" placeholder="Opponent's GitHub Username"
+          style="width: 100%; box-sizing: border-box; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px 12px; color: #fff; margin-bottom: 12px; font-family: 'Inter', sans-serif;" />
+
+        <select id="battle-type"
+          style="width: 100%; box-sizing: border-box; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px 12px; color: #fff; margin-bottom: 16px; font-family: 'Inter', sans-serif;">
+          <option value="30-day-streak">⚔️ 30-Day Streak Duel</option>
+          <option value="7-day-sprint">⚡ 7-Day Sprint</option>
+          <option value="topic-master">🎯 Topic Master</option>
+          <option value="consistency-king">🌙 90-Day Consistency King</option>
         </select>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <label style="color: #fff; font-size: 13px; font-weight: 500;">
+            <input type="checkbox" id="battle-is-public" style="margin-right: 6px;"> Make it public
+          </label>
+          <select id="battle-max-players"
+            style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: #fff; display: none;">
+            <option value="2">2 Players</option>
+            <option value="5">5 Players</option>
+            <option value="10">10 Players</option>
+            <option value="20">20 Players</option>
+          </select>
+        </div>
+
+        <button id="btn-send-challenge"
+          style="width: 100%; background: linear-gradient(135deg, #22c55e, #15803d); color: #fff; border: none; padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; transition: transform 0.2s;">
+          Send Challenge 🔥
+        </button>
+        <button id="btn-create-open"
+          style="width: 100%; background: transparent; border: 1px solid #10b981; color: #10b981; padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; margin-top: 8px; display: none;">
+          🌐 Create Open Battle
+        </button>
       </div>
 
-      <button id="btn-send-challenge" style="width: 100%; background: linear-gradient(135deg, #22c55e, #15803d); color: #fff; border: none; padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; transition: transform 0.2s;">
-        Send Challenge 🔥
-      </button>
-      <button id="btn-create-open" style="width: 100%; background: transparent; border: 1px solid #10b981; color: #10b981; padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; margin-top: 8px; display: none;">
-        🌐 Create Open Battle
-      </button>
-    </div>
-
-    <div style="margin-top: 24px;">
-      <h3 style="margin: 0 0 12px 0; font-size: 13px; color: #a1a1aa; text-transform: uppercase; letter-spacing: 1px; text-align: center;">🏅 Your Unlocked Badges</h3>
-      <div id="badges-container" style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;">
-        <p style="color: #52525b; font-size: 13px; margin: 0;">Play a battle to unlock badges!</p>
+      <div style="margin-top: 24px;">
+        <h3
+          style="margin: 0 0 12px 0; font-size: 13px; color: #a1a1aa; text-transform: uppercase; letter-spacing: 1px; text-align: center;">
+          🏅 Your Unlocked Badges</h3>
+        <div id="badges-container" style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;">
+          <p style="color: #52525b; font-size: 13px; margin: 0;">Play a battle to unlock badges!</p>
+        </div>
       </div>
-    </div>
     </div>
   </div> <!-- /view-battles -->
 
   <!-- ── Arena View ──────────────────────────────────────────────────────── -->
-  <div id="view-arena" class="view-pane" style="display: none;">
+  <div id="view-arena" class="view-pane" style="display: none; padding: 12px;">
     <!-- Filters Bar -->
-    <div style="display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 8px; scroll-behavior: smooth;">
-      <button id="filter-all" class="arena-filter active" style="background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); padding: 6px 12px; border-radius: 20px; font-weight: 600; cursor: pointer; font-size: 12px; white-space: nowrap;">All</button>
-      <button id="filter-active" class="arena-filter" style="background: rgba(34,197,94,0.1); color: #86efac; border: 1px solid rgba(34,197,94,0.3); padding: 6px 12px; border-radius: 20px; font-weight: 600; cursor: pointer; font-size: 12px; white-space: nowrap;">🔥 Active</button>
-      <button id="filter-pending" class="arena-filter" style="background: rgba(168,85,247,0.1); color: #d8b4fe; border: 1px solid rgba(168,85,247,0.3); padding: 6px 12px; border-radius: 20px; font-weight: 600; cursor: pointer; font-size: 12px; white-space: nowrap;">⏰ Pending</button>
-      <button id="filter-7day" class="arena-filter" style="background: rgba(34,197,94,0.1); color: #86efac; border: 1px solid rgba(34,197,94,0.3); padding: 6px 12px; border-radius: 20px; font-weight: 600; cursor: pointer; font-size: 12px; white-space: nowrap;">7-Day</button>
-      <button id="filter-30day" class="arena-filter" style="background: rgba(168,85,247,0.1); color: #d8b4fe; border: 1px solid rgba(168,85,247,0.3); padding: 6px 12px; border-radius: 20px; font-weight: 600; cursor: pointer; font-size: 12px; white-space: nowrap;">30-Day</button>
+    <div
+      style="display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 8px; scroll-behavior: smooth;">
+      <button id="filter-all" class="arena-filter active"
+        style="background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); padding: 6px 12px; border-radius: 20px; font-weight: 600; cursor: pointer; font-size: 12px; white-space: nowrap;">All</button>
+      <button id="filter-active" class="arena-filter"
+        style="background: rgba(34,197,94,0.1); color: #86efac; border: 1px solid rgba(34,197,94,0.3); padding: 6px 12px; border-radius: 20px; font-weight: 600; cursor: pointer; font-size: 12px; white-space: nowrap;">🔥
+        Active</button>
+      <button id="filter-pending" class="arena-filter"
+        style="background: rgba(168,85,247,0.1); color: #d8b4fe; border: 1px solid rgba(168,85,247,0.3); padding: 6px 12px; border-radius: 20px; font-weight: 600; cursor: pointer; font-size: 12px; white-space: nowrap;">⏰
+        Pending</button>
+      <!-- <button id="filter-7day" class="arena-filter"
+        style="background: rgba(34,197,94,0.1); color: #86efac; border: 1px solid rgba(34,197,94,0.3); padding: 6px 12px; border-radius: 20px; font-weight: 600; cursor: pointer; font-size: 12px; white-space: nowrap;">7-Day</button>
+      <button id="filter-30day" class="arena-filter"
+        style="background: rgba(168,85,247,0.1); color: #d8b4fe; border: 1px solid rgba(168,85,247,0.3); padding: 6px 12px; border-radius: 20px; font-weight: 600; cursor: pointer; font-size: 12px; white-space: nowrap;">30-Day</button> -->
     </div>
 
     <!-- Battle Cards Container -->
-    <div id="arena-battles-container" style="display: flex; flex-direction: column; gap: 12px; max-height: 400px; overflow-y: auto;">
+    <div id="arena-battles-container"
+      style="display: flex; flex-direction: column; gap: 12px; max-height: 400px; overflow-y: auto;">
       <p style="color: #a1a1aa; font-size: 13px; text-align: center;">Loading battles...</p>
     </div>
 
     <!-- Winner Card -->
-    <div style="background: linear-gradient(135deg, rgba(251,191,36,0.15) 0%, rgba(168,85,247,0.1) 100%); border: 1px solid rgba(251,191,36,0.3); border-radius: 12px; padding: 12px; margin-top: 16px; text-align: center;">
+    <div
+      style="background: linear-gradient(135deg, rgba(251,191,36,0.15) 0%, rgba(168,85,247,0.1) 100%); border: 1px solid rgba(251,191,36,0.3); border-radius: 12px; padding: 12px; margin-top: 16px; text-align: center;">
       <div style="font-size: 20px; margin-bottom: 8px;">🏆</div>
-      <p id="arena-winner-text" style="color: #fbbf24; font-size: 12px; margin: 0; font-weight: 600;">Recent Battle Winners</p>
+      <p id="arena-winner-text" style="color: #fbbf24; font-size: 12px; margin: 0; font-weight: 600;">Recent Battle
+        Winners</p>
     </div>
 
-    <button id="btn-explore-arena" style="width: 100%; background: linear-gradient(135deg, rgba(34,197,94,0.2), rgba(168,85,247,0.2)); color: #fff; border: 1px solid rgba(34,197,94,0.3); padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer; margin-top: 12px; transition: all 0.3s ease;">
+    <button id="btn-explore-arena"
+      style="width: 100%; background: linear-gradient(135deg, rgba(34,197,94,0.2), rgba(168,85,247,0.2)); color: #fff; border: 1px solid rgba(34,197,94,0.3); padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer; margin-top: 12px; transition: all 0.3s ease;">
       Explore Full Arena →
     </button>
   </div> <!-- /view-arena -->
 
-</div><!-- /screen-main -->
+  </div><!-- /screen-main -->
 
-<script type="module" src="popup.js"></script>
+  <script type="module" src="popup.js"></script>
 </body>
+
 </html>
