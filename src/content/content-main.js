@@ -143,8 +143,11 @@
           '[class*="text-difficulty-easy"]', '[class*="text-difficulty-medium"]',
           '[class*="text-difficulty-hard"]', '[class*="difficulty"]',
         ]) {
-          const m = document.querySelector(sel)?.textContent?.trim().match(/(easy|medium|hard)/i);
-          if (m) return cap(m[0]);
+          const m = document.querySelector(sel)?.textContent?.trim().match(/(easy|medium|hard|moderate)/i);
+          if (m) {
+            if (m[0].toLowerCase() === 'moderate') return 'Medium';
+            return cap(m[0]);
+          }
         }
         return null;
       },
@@ -178,8 +181,10 @@
         return v ? /correct|accepted|passed/i.test(v.textContent) : false;
       },
       getDifficulty() {
-        const m = document.querySelector('[class*="difficulty"]')?.textContent?.trim().match(/(easy|medium|hard)/i);
-        return m ? cap(m[0]) : null;
+        const m = document.querySelector('[class*="difficulty"]')?.textContent?.trim().match(/(easy|medium|hard|moderate)/i);
+        if (!m) return null;
+        if (m[0].toLowerCase() === 'moderate') return 'Medium';
+        return cap(m[0]);
       },
       getQuestionName() {
         return (
@@ -219,8 +224,10 @@
         const m = (
           document.querySelector('[class*="difficulty"]') ??
           document.querySelector('[class*="level"]')
-        )?.textContent?.trim().match(/(easy|medium|hard)/i);
-        return m ? cap(m[0]) : null;
+        )?.textContent?.trim().match(/(easy|medium|hard|moderate)/i);
+        if (!m) return null;
+        if (m[0].toLowerCase() === 'moderate') return 'Medium';
+        return cap(m[0]);
       },
       getQuestionName() {
         return (
