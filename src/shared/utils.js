@@ -161,7 +161,12 @@ function getCommentChar(lang) {
 // ─── Date utilities ───────────────────────────────────────────────────────────
 
 export function todayISO() {
-  return new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+  const d = new Date();
+  // Use LOCAL date, not UTC — so "today" matches the user's actual calendar day
+  const yyyy = d.getFullYear();
+  const mm   = String(d.getMonth() + 1).padStart(2, '0');
+  const dd   = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 export function formatDate(iso) {

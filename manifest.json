@@ -10,8 +10,7 @@
     "identity",
     "notifications",
     "alarms",
-    "tabs",
-    "scripting"
+    "tabs"
   ],
 
   "host_permissions": [

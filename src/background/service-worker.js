@@ -126,7 +126,7 @@ async function handleWebSocketMessage(data) {
     // Use battleId for consistency - sync uses either id or battleId
     const battleId = battle.id || battle.battleId;
     const existingIndex = battles.findIndex(b => b.id === battleId);
-    
+
     if (existingIndex !== -1) {
       // Update existing - merge data carefully to preserve participant details
       battles[existingIndex] = {
@@ -616,7 +616,7 @@ async function getPopupData() {
   const signupDate = await getSignupDate();
   const pushHistory = (await getPushHistory()).slice(0, 10);
   const badges = await getBadges() || [];
-  
+
   // Fetch fresh battle data from backend API + local storage
   let battles = [];
   try {
@@ -631,7 +631,7 @@ async function getPopupData() {
   } catch (e) {
     console.error("[DSA Tracker] Failed to fetch fresh battles:", e);
   }
-  
+
   // Fallback to local storage if API fetch failed
   if (!battles || battles.length === 0) {
     battles = (await getBattles()) || [];

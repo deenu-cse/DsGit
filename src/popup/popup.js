@@ -164,7 +164,9 @@ function renderDashboard(data) {
   $("streak-best").textContent = `🏆 Best: ${streakData.longestStreak} days`;
 
   // Today solved badge
-  const todayISO = new Date().toISOString().slice(0, 10);
+  // Use LOCAL date to match how dates are stored (via todayISO() in utils.js)
+  const now = new Date();
+  const todayISO = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
   const todayH   = streakData.history?.find(h => h.date === todayISO);
   if (todayH) $("today-badge").classList.remove("hidden");
 
@@ -433,14 +435,16 @@ function renderHeatmap(streakData, days = 30) {
   const container = $("heatmap");
   container.innerHTML = "";
 
-  const todayISO  = new Date().toISOString().slice(0, 10);
+  // Use LOCAL date to match stored dates
+  const now = new Date();
+  const todayISO  = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
   const histMap   = Object.fromEntries((streakData.history ?? []).map(h => [h.date, h.count]));
   const breaksSet = new Set(streakData.breaks ?? []);
 
   for (let i = days - 1; i >= 0; i--) {
     const d   = new Date();
     d.setDate(d.getDate() - i);
-    const iso = d.toISOString().slice(0, 10);
+    const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     const count = histMap[iso] ?? 0;
 
     const cell    = document.createElement("div");

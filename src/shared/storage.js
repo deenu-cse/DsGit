@@ -92,16 +92,20 @@ export async function recordPush(dateISO) {
   const today = dateISO.slice(0, 10); // "YYYY-MM-DD"
 
   if (streak.lastPushDate) {
-    const last = new Date(streak.lastPushDate);
-    const curr = new Date(today);
+    // Parse dates carefully — append T00:00:00 to avoid timezone shifts
+    const last = new Date(streak.lastPushDate + "T00:00:00");
+    const curr = new Date(today + "T00:00:00");
     const diffDays = Math.round((curr - last) / 86_400_000);
 
     if (diffDays > 1) {
-      // Broke the streak — record each missed day
+      // Broke the streak — record each missed day using LOCAL date format
       for (let d = 1; d < diffDays; d++) {
         const missed = new Date(last);
         missed.setDate(missed.getDate() + d);
-        streak.breaks.push(missed.toISOString().slice(0, 10));
+        const yyyy = missed.getFullYear();
+        const mm = String(missed.getMonth() + 1).padStart(2, '0');
+        const dd = String(missed.getDate()).padStart(2, '0');
+        streak.breaks.push(`${yyyy}-${mm}-${dd}`);
       }
       streak.currentStreak = 1; // reset
     } else if (diffDays === 1) {
@@ -139,11 +143,40 @@ export async function appendPushHistory(entry) {
 
 // ─── Day number ───────────────────────────────────────────────────────────────
 
+/**
+ * Helper: get today's date in LOCAL timezone as "YYYY-MM-DD".
+ * Must match todayISO() in utils.js — we duplicate here to avoid circular imports.
+ */
+function localToday() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
+ * Returns the current day number based on unique submission dates.
+ * Day 1 = first ever push day, Day 2 = second unique push day, etc.
+ * Uses BOTH pushHistory AND streakData.history for robustness —
+ * if push history is ever truncated/cleared, streak history still has the dates.
+ */
 export async function getCurrentDayNumber() {
-  const signupDate = await getSignupDate();
-  if (!signupDate) return 1;
-  const start = new Date(signupDate);
-  const now = new Date();
-  const diff = Math.floor((now - start) / 86_400_000);
-  return diff + 1;
+  const history = await getPushHistory();
+  const streak = await getStreakData();
+
+  // Merge unique dates from both push history and streak history
+  const pushDates = (history || []).map(e => e.date).filter(Boolean);
+  const streakDates = (streak.history || []).map(h => h.date).filter(Boolean);
+  const allDates = [...new Set([...pushDates, ...streakDates])].sort();
+
+  if (allDates.length === 0) return 1;
+
+  const today = localToday();
+
+  if (allDates.includes(today)) {
+    return allDates.indexOf(today) + 1;
+  } else {
+    return allDates.length + 1;
+  }
 }

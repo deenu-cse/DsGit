@@ -5,7 +5,6 @@ export const VERSION = "1.0.0";
 
 // GitHub OAuth — replace with your GitHub OAuth App credentials
 export const GITHUB_CLIENT_ID = "Ov23liTS6XnZTy9c7qIz";
-export const GITHUB_CLIENT_SECRET = "82a8248ff9f8cd958456ec7833b501ce552548cf";
 export const GITHUB_REDIRECT_URI = `https://${chrome.runtime.id}.chromiumapp.org/`;
 export const GITHUB_AUTH_URL = "https://github.com/login/oauth/authorize";
 export const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
